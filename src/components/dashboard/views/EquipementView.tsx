@@ -5,10 +5,10 @@ import { Settings, ShoppingCart, Shield, Droplets } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { FilterState } from "@/types";
 import { useOverview, useEvolution, useDistribution } from "@/hooks/useDashboardData";
-import { PieChart, Pie, Cell } from "recharts";
 import { calculateTrend } from "@/lib/trend-utils";
 import { DataTableModal } from "../modals/DataTableModal";
 import { ProductCategorySection } from "../sections/ProductCategorySection";
+import { EvolutionMonthData } from "@/services/dashboard-api";
 
 interface EquipementViewProps {
   filters: FilterState;
@@ -20,25 +20,6 @@ const COLORS = [
   "hsl(200, 45%, 55%)",
   "hsl(200, 35%, 65%)",
   "hsl(200, 25%, 75%)",
-];
-
-// KPIs globaux
-const equipementOverview = {
-  caTotal: 285000,
-  location: 125000,
-  vente: 95000,
-  assistance: 42000,
-  entretien: 23000,
-};
-
-// Évolution mensuelle
-const evolutionMensuelleData = [
-  { mois: "Jan", location: 18500, vente: 14200, assistance: 6500, entretien: 3500 },
-  { mois: "Fév", location: 19200, vente: 15800, assistance: 6800, entretien: 3800 },
-  { mois: "Mar", location: 21000, vente: 16500, assistance: 7200, entretien: 4000 },
-  { mois: "Avr", location: 20500, vente: 15200, assistance: 6900, entretien: 3700 },
-  { mois: "Mai", location: 22800, vente: 17500, assistance: 7400, entretien: 4100 },
-  { mois: "Juin", location: 23000, vente: 15800, assistance: 7200, entretien: 3900 },
 ];
 
 // Location machines par marque
@@ -174,16 +155,30 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
   const evolutionData = evolution?.[currentYear] ? Object.entries(evolution[currentYear])
     .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
     .map(([month, data]: [string, any]) => {
-      const monthData = Array.isArray(data) ? data[0] : data;
+      const stats = data.reduce((acc: any, item: any) => {
+        const mapping: Record<string, string> = {
+          "MACHINES": "vente",
+          "LOCATION MACHINES": "location",
+          "Assistance Premium": "assistance",
+          "PACK ENTRETIEN": "entretien"
+        };
+        const key = mapping[item.universe];
+        if (key) {
+          acc[key] = item.ca_total_ht;
+        }
+        return acc;
+      }, {});
+
       return {
         mois: month.substring(0, 3), // "January" -> "Jan"
-        location: 0, // Breakdown not available in API yet
-        vente: 0,
-        assistance: 0,
-        entretien: 0,
-        total: monthData?.ca_total_ht || 0
+        location: stats.location || 0,
+        vente: stats.vente || 0,
+        assistance: stats.assistance || 0,
+        entretien: stats.entretien || 0,
+        total: data.map((universData: EvolutionMonthData) => universData.ca_total_ht).reduce((a: number, b: number) => a + b, 0)
       };
     }) : [];
+
 
   // If we have API data, we might want to prioritize it, but for the stacked bar chart which requires breakdown, 
   // we might need to stick to mock data OR just show the total if the breakdown is missing.
@@ -248,46 +243,8 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         </div>
       </div>
 
-
-
-      {/* Graphiques Répartition et Évolution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div
-          className="chart-container cursor-pointer hover:shadow-lg transition-all"
-          onClick={() => openModal('caTotal')}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Répartition par Catégorie</h3>
-            <span className="text-xs text-muted-foreground underline">Voir tableau</span>
-          </div>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={repartitionData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, value }) => `${name}: ${value}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {repartitionData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(40, 25%, 99%)",
-                  border: "1px solid hsl(35, 20%, 88%)",
-                  borderRadius: "0.75rem",
-                }}
-                formatter={(value: number, name: string) => [`${value}%`, name]}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
+      {/* Graphiques Évolution */}
+      <div className="grid grid-cols-1 gap-6">
         <div
           className="chart-container cursor-pointer hover:shadow-lg transition-all"
           onClick={() => openModal('evolution')}
@@ -296,8 +253,8 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             <h3 className="text-lg font-semibold">Évolution Mensuelle par Catégorie</h3>
             <span className="text-xs text-muted-foreground underline">Voir tableau</span>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={evolutionData.length > 0 ? evolutionData : evolutionMensuelleData}>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={evolutionData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
               <XAxis dataKey="mois" stroke="hsl(25, 15%, 45%)" fontSize={12} />
               <YAxis
@@ -312,21 +269,15 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
                   borderRadius: "0.75rem",
                 }}
                 formatter={(value: number, name: string) => [
-                  `${(value || 0).toLocaleString()}€`,
+                  `${((value || 0) / 1000).toFixed(0)}k€`,
                   name === 'total' ? 'CA Total' : name
                 ]}
               />
-              <Legend />
-              {evolutionData.length > 0 ? (
-                <Bar dataKey="total" name="CA Total" fill="hsl(200, 55%, 40%)" radius={[4, 4, 0, 0]} />
-              ) : (
-                <>
-                  <Bar dataKey="location" name="Location" fill="hsl(200, 55%, 40%)" radius={[4, 4, 0, 0]} stackId="a" />
-                  <Bar dataKey="vente" name="Vente" fill="hsl(200, 45%, 55%)" radius={[4, 4, 0, 0]} stackId="a" />
-                  <Bar dataKey="assistance" name="Assistance" fill="hsl(200, 35%, 65%)" radius={[4, 4, 0, 0]} stackId="a" />
-                  <Bar dataKey="entretien" name="Entretien" fill="hsl(200, 25%, 75%)" radius={[4, 4, 0, 0]} stackId="a" />
-                </>
-              )}
+              <Legend verticalAlign="bottom" height={36} />
+              <Bar dataKey="location" name="Location" fill="hsl(200, 55%, 40%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="vente" name="Vente" fill="hsl(200, 45%, 55%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="assistance" name="Assistance" fill="hsl(200, 35%, 65%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="entretien" name="Entretien" fill="hsl(200, 25%, 75%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -583,7 +534,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           { key: "assistance", label: "Assistance", format: (v) => `${(v || 0).toLocaleString()}€` },
           { key: "entretien", label: "Entretien", format: (v) => `${(v || 0).toLocaleString()}€` },
         ]}
-        data={evolutionMensuelleData}
+        data={evolutionData}
         variant="equipement"
       />
     </div >

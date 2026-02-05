@@ -117,9 +117,9 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
     if (!distribution) return [];
     return Object.entries(distribution).map(([key, item]: [string, any]) => ({
       name: item.poid_unit || key, // Using poid_unit as label (e.g., "Installation")
-      ca: item.ca_total_ht,
-      value: parseFloat(item.percentage) || 0,
-    })).sort((a, b) => b.value - a.value);
+      ca: item.total_ht,
+      value: parseFloat(item.percentage_ht) || 0,
+    })).filter((item) => item.value >= 1).sort((a, b) => b.value - a.value);
   }, [distribution]);
 
   // Helper to calculate trend
@@ -134,24 +134,37 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   };
 
   // Transform Evolution Data for Chart
-  const currentYear = filters.period.start.getFullYear().toString();
   const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const isMoreAYear = evolution && Object.entries(evolution)?.length > 2;
 
-  const evolutionData = evolution?.[currentYear] ? Object.entries(evolution[currentYear])
-    .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
-    .map(([month, data]: [string, any]) => {
-      const monthData = Array.isArray(data) ? data[0] : data;
-      return {
-        mois: month.substring(0, 3),
-        reparation: 0, // Breakdown not available
-        installation: 0,
-        cartouche: 0,
-        pret: 0,
-        echange: 0,
-        total: monthData?.ca_total_ht || 0
-      };
-    }) : [];
+  const evolutionData = evolution ? Object.entries(evolution)
+    .flatMap(([year, yearData]) => 
+      Object.entries(yearData)
+        .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
+        .map(([month, monthItems]) => {
+          const monthData = Array.isArray(monthItems) ? monthItems : [monthItems];
+          const aggregated = {
+            mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`,
+            reparation: 0,
+            installation: 0,
+            cartouche: 0,
+            pret: 0,
+            echange: 0,
+            total: 0
+          };
+          monthData.forEach((item: { universe: string; ca_total_ht: number }) => {
+            aggregated.total += item.ca_total_ht;
+            if (item.universe === 'reparation') aggregated.reparation += item.ca_total_ht;
+            else if (item.universe === 'installation') aggregated.installation += item.ca_total_ht;
+            else if (item.universe === 'cartouche') aggregated.cartouche += item.ca_total_ht;
+            else if (item.universe === 'pret') aggregated.pret += item.ca_total_ht;
+            else if (item.universe === 'echange') aggregated.echange += item.ca_total_ht;
+          });
 
+          return aggregated;
+        })
+    ) : [];
+    evolutionData?.pop()
   const caTotal = overview?.ca_total_ht_global || 0;
 
   return (
@@ -179,7 +192,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend(overview?.ca_installation_total_ht, compareOverview?.ca_installation_total_ht)}
             icon={<Settings className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            onClick={() => openModal('installation')}
+            // onClick={() => openModal('installation')}
           />
           <BaseKpiCard
             label="Réparation"
@@ -188,7 +201,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend(overview?.ca_reparation_total_ht, compareOverview?.ca_reparation_total_ht)}
             icon={<Wrench className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            onClick={() => openModal('reparation')}
+            // onClick={() => openModal('reparation')}
           />
           <BaseKpiCard
             label="Changement Cartouche"
@@ -197,7 +210,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend(overview?.ca_cartouche_total_ht, compareOverview?.ca_cartouche_total_ht)}
             icon={<RefreshCw className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            onClick={() => openModal('cartouche')}
+            // onClick={() => openModal('cartouche')}
           />
           <BaseKpiCard
             label="Prêt / Échange"
@@ -206,7 +219,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend((overview?.ca_pret_total_ht || 0) + (overview?.ca_echange_total_ht || 0), (compareOverview?.ca_pret_total_ht || 0) + (compareOverview?.ca_echange_total_ht || 0))}
             icon={<ArrowRightLeft className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            onClick={() => openModal('pretEchange')}
+            // onClick={() => openModal('pretEchange')}
           />
         </div>
       </div>
@@ -278,10 +291,11 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
                 ]}
               />
               <Legend />
-              {evolutionData.length > 0 ? (
+              {!(evolutionData.length > 0) ? (
                 <Bar dataKey="total" name="CA Total" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} />
               ) : (
                 <>
+                  <Bar dataKey="reparation" name="Échange" fill="hsl(281, 46%, 24%)" radius={[4, 4, 0, 0]} stackId="a" />
                   <Bar dataKey="reparation" name="Réparation" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} stackId="a" />
                   <Bar dataKey="installation" name="Installation" fill="hsl(280, 40%, 55%)" radius={[4, 4, 0, 0]} stackId="a" />
                   <Bar dataKey="cartouche" name="Cartouche" fill="hsl(280, 35%, 65%)" radius={[4, 4, 0, 0]} stackId="a" />

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import type { FilterState } from '@/types';
-import { fetchOverview, fetchEvolution, fetchDistribution } from '@/services/dashboard-api';
+import { fetchOverview, fetchEvolution, fetchDistribution, fetchSummary } from '@/services/dashboard-api';
 import { CACHE_TIME } from '@/config/constants';
 
 /**
@@ -114,3 +114,22 @@ export function usePrefetchDashboardData(view: string, filters: FilterState) {
     };
 }
 
+/**
+ * Hook pour charger les données consolidées de tous les univers.
+ * 
+ * @param filters - Filtres appliqués.
+ * @param options - Options supplémentaires pour React Query.
+ * @returns L'objet Query de React Query.
+ */
+export function useSummary(filters: FilterState, options?: { enabled?: boolean }) {
+    return useQuery({
+        queryKey: ['summary', filters],
+        queryFn: () => fetchSummary(filters),
+        staleTime: CACHE_TIME.STALE_TIME,
+        gcTime: CACHE_TIME.CACHE_TIME,
+        retry: 3,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+        placeholderData: (previousData) => previousData,
+        enabled: options?.enabled !== undefined ? options.enabled : true,
+    });
+}

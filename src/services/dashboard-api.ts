@@ -68,7 +68,8 @@ export interface EvolutionResponse {
  */
 export interface DistributionItem {
     poid_unit: string;
-    percentage_kg: number;
+    percentage_kg?: number;
+    percentage_ht?: number;
     nombre_produit: number;
     nombre_lignes: number;
     ca_total_ht: number;
@@ -83,8 +84,91 @@ export interface DistributionResponse {
         [poids: string]: DistributionItem;
     };
     summary: {
-      total_poids_global_kg: number;
+        total_poids_global_kg: number;
     }
+}
+
+/**
+ * Interface pour l'overview d'un univers dans le summary
+ */
+export interface UniverseOverview {
+    universe: string;
+    date_start: string;
+    date_end: string;
+    ca_total_ht_global: number;
+    volume_total_global?: number;
+    part_b2b?: string | number;
+    average_price_per_kg?: string | number;
+    // Equipement specific
+    ca_location_total_ht?: number;
+    ca_vente_total_ht?: number;
+    ca_assistance_total_ht?: number;
+    ca_entretien_total_ht?: number;
+    // Service specific
+    ca_installation_total_ht?: number;
+    ca_reparation_total_ht?: number;
+    ca_cartouche_total_ht?: number;
+    ca_echange_total_ht?: number;
+}
+
+/**
+ * Interface pour les données d'évolution d'un mois pour equipement/service (array)
+ */
+export interface UniverseMonthDataItem {
+    universe: string;
+    nombre_facture: number;
+    nombre_product: number;
+    ca_total_ht: number;
+}
+
+/**
+ * Interface pour les données d'évolution d'un mois pour cafe (object)
+ */
+export interface CafeMonthData {
+    universe: string;
+    nombre_facture: number;
+    nombre_product: number;
+    ca_total_ht: number;
+    volume_total: number;
+}
+
+/**
+ * Interface pour la réponse de l'endpoint Summary
+ */
+export interface SummaryResponse {
+    overview: {
+        cafe: UniverseOverview;
+        equipement: UniverseOverview;
+        service: UniverseOverview;
+    };
+    evolution: {
+        cafe: {
+            [year: string]: {
+                [month: string]: CafeMonthData;
+            } | any;
+            total: {
+                ca_total_ht_global: number;
+                volume_total_global: number;
+                univers: string;
+            };
+        };
+        equipement: {
+            [year: string]: {
+                [month: string]: UniverseMonthDataItem[];
+            } | any;
+            total: {
+                ca_total_ht_global: number;
+            };
+        };
+        service: {
+            [year: string]: {
+                [month: string]: UniverseMonthDataItem[];
+            } | any;
+            total: {
+                ca_total_ht_global: number;
+            };
+        };
+    };
 }
 
 /**
@@ -187,8 +271,11 @@ export async function fetchEvolution(
 ): Promise<EvolutionResponse> {
     const queryParams = new URLSearchParams();
 
-    const year = filters.period.start.getFullYear().toString();
-    queryParams.append('annee', year);
+    // Format dates YYYY-MM-DD
+    if (filters.period) {
+        queryParams.append('date_start', format(filters.period.start, 'yyyy-MM-dd'));
+        queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
+    }
 
     if (filters.searchProduct) {
         queryParams.append('search_product', filters.searchProduct);
@@ -253,6 +340,61 @@ export async function fetchDistribution(
 
     if (!response.ok) {
         throw new Error(`Distribution API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Récupère les données consolidées de tous les univers (overview + evolution).
+ *
+ * @param filters - Filtres actifs (période, etc.).
+ * @returns Une promesse contenant les données consolidées.
+ *
+ * @throws {Error} Si la requête échoue (status non-2xx).
+ *
+ * @example
+ * ```typescript
+ * const summary = await fetchSummary(filters);
+ * console.log(summary.overview.cafe.ca_total_ht_global);
+ * ```
+ */
+export async function fetchSummary(
+    filters: FilterState
+): Promise<SummaryResponse> {
+    const queryParams = new URLSearchParams();
+
+    // Format dates YYYY-MM-DD
+    if (filters.period) {
+        queryParams.append('date_start', format(filters.period.start, 'yyyy-MM-dd'));
+        queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
+    }
+
+    if (filters.searchProduct) {
+        queryParams.append('search_product', filters.searchProduct);
+    }
+
+    if (filters.segments && filters.segments.length > 0) {
+        queryParams.append('segments', filters.segments.join(','));
+    }
+
+    if (filters.regions && filters.regions.length > 0) {
+        queryParams.append('regions', filters.regions.join(','));
+    }
+
+    if (filters.clientTypes && filters.clientTypes.length > 0) {
+        queryParams.append('client_types', filters.clientTypes.join(','));
+    }
+
+    const url = `${API_BASE_URL}/cscdataapi/summary?${queryParams.toString()}`;
+
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Summary API Error: ${response.status} ${response.statusText}`);
     }
 
     return response.json();

@@ -79,16 +79,6 @@ const diversData = [
   { categorie: 'Divers', ca: 5000, volume: 1200, part: '10%' },
 ];
 
-// Évolution mensuelle
-const evolutionMensuelleData = [
-  { mois: 'Jan', ca: 72000, volume: 1850 },
-  { mois: 'Fév', ca: 78000, volume: 2020 },
-  { mois: 'Mar', ca: 82000, volume: 2150 },
-  { mois: 'Avr', ca: 79000, volume: 2050 },
-  { mois: 'Mai', ca: 85000, volume: 2210 },
-  { mois: 'Juin', ca: 89000, volume: 2320 },
-];
-
 export function CafeView({ filters, isComparing }: CafeViewProps) {
   const { openModals, openModal, closeModal } = useModalState([
     'caTotal',
@@ -142,6 +132,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         volume: item.poids_total,
         part: parseFloat(item.percentage_kg) || 0,
       }))
+      .filter((item) => item.part >= 1)
       .sort((a, b) => b.part - a.part);
   }, [distribution]);
 
@@ -164,15 +155,20 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
 
   // Transform Evolution Data for Chart
   const currentYear = filters.period.start.getFullYear().toString();
-  const evolutionData = evolution?.[currentYear]
-    ? Object.entries(evolution[currentYear]).map(
+  const isMoreAYear = evolution && (Object.entries(evolution)?.length > 2);
+
+  const evolutionData = evolution
+    ? Object.entries(evolution).flatMap(([year, yearData]) =>
+      Object.entries(yearData).map(
         ([month, data]: [string, any]) => ({
-          mois: month.substring(0, 3), // "January" -> "Jan"
+          mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`, // "January" -> "Jan"
           ca: data.ca_total_ht,
           volume: data.volume_total,
         }),
       )
+    )
     : [];
+  evolutionData?.splice(-3)
 
   // KPI Values
   const caTotal = Number(overview?.ca_total_ht_global || 0) || 0;
@@ -357,11 +353,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart
-              data={
-                evolutionData.length > 0
-                  ? evolutionData
-                  : evolutionMensuelleData
-              }
+              data={evolutionData}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
               <XAxis dataKey="mois" stroke="hsl(25, 15%, 45%)" fontSize={12} />
@@ -574,35 +566,35 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         data={
           evolutionData.length > 0
             ? evolutionData.map((item: any) => {
-                // Try to find the month data in the raw evolution object to get part_b2b if not in evolutionData
-                // evolutionData items are { mois, ca, volume } constructed above.
-                // We need to reconstruct or look up in 'evolution' object.
-                // Accessing 'evolution' directly is safer.
-                const monthKey = Object.keys(
-                  evolution?.[currentYear] || {},
-                ).find(
-                  (k) =>
-                    k.startsWith(item.mois) ||
-                    item.mois.startsWith(k.substring(0, 3)),
-                );
-                const rawMonth = monthKey
-                  ? evolution[currentYear][monthKey]
-                  : null;
-                const val = rawMonth?.part_b2b || 0;
-                return {
-                  mois: item.mois,
-                  b2b: `${(val || 0).toFixed(1)}%`,
-                  b2c: `${(100 - (val || 0)).toFixed(1)}%`,
-                };
-              })
+              // Try to find the month data in the raw evolution object to get part_b2b if not in evolutionData
+              // evolutionData items are { mois, ca, volume } constructed above.
+              // We need to reconstruct or look up in 'evolution' object.
+              // Accessing 'evolution' directly is safer.
+              const monthKey = Object.keys(
+                evolution?.[currentYear] || {},
+              ).find(
+                (k) =>
+                  k.startsWith(item.mois) ||
+                  item.mois.startsWith(k.substring(0, 3)),
+              );
+              const rawMonth = monthKey
+                ? evolution[currentYear][monthKey]
+                : null;
+              const val = rawMonth?.part_b2b || 0;
+              return {
+                mois: item.mois,
+                b2b: `${(val || 0).toFixed(1)}%`,
+                b2c: `${(100 - (val || 0)).toFixed(1)}%`,
+              };
+            })
             : [
-                { mois: 'Jan', b2b: '64%', b2c: '36%' },
-                { mois: 'Fév', b2b: '65%', b2c: '35%' },
-                { mois: 'Mar', b2b: '66%', b2c: '34%' },
-                { mois: 'Avr', b2b: '66%', b2c: '34%' },
-                { mois: 'Mai', b2b: '67%', b2c: '33%' },
-                { mois: 'Juin', b2b: '66%', b2c: '34%' },
-              ]
+              { mois: 'Jan', b2b: '64%', b2c: '36%' },
+              { mois: 'Fév', b2b: '65%', b2c: '35%' },
+              { mois: 'Mar', b2b: '66%', b2c: '34%' },
+              { mois: 'Avr', b2b: '66%', b2c: '34%' },
+              { mois: 'Mai', b2b: '67%', b2c: '33%' },
+              { mois: 'Juin', b2b: '66%', b2c: '34%' },
+            ]
         }
         variant="cafe"
       />
@@ -651,7 +643,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           },
           { key: 'volume', label: 'Volume (kg)' },
         ]}
-        data={evolutionData.length > 0 ? evolutionData : evolutionMensuelleData}
+        data={evolutionData}
         variant="cafe"
       />
     </div>
