@@ -1,0 +1,262 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Coffee-inspired warm palette */
+    --background: 40 30% 97%;
+    --foreground: 25 30% 12%;
+
+    --card: 40 25% 99%;
+    --card-foreground: 25 30% 12%;
+
+    --popover: 40 25% 99%;
+    --popover-foreground: 25 30% 12%;
+
+    /* Espresso brown primary */
+    --primary: 25 45% 22%;
+    --primary-foreground: 40 30% 97%;
+
+    /* Warm cream secondary */
+    --secondary: 35 30% 92%;
+    --secondary-foreground: 25 45% 22%;
+
+    --muted: 35 20% 90%;
+    --muted-foreground: 25 15% 45%;
+
+    --accent: 35 35% 88%;
+    --accent-foreground: 25 45% 22%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 35 20% 88%;
+    --input: 35 20% 88%;
+    --ring: 25 45% 22%;
+
+    --radius: 0.75rem;
+
+    /* Segment colors */
+    --segment-gc: 220 55% 35%;
+    --segment-gc-light: 220 55% 95%;
+    --segment-pp: 35 85% 50%;
+    --segment-pp-light: 35 85% 95%;
+    --segment-b2c: 145 45% 35%;
+    --segment-b2c-light: 145 45% 95%;
+
+    /* Product universe colors */
+    --universe-cafe: 25 60% 35%;
+    --universe-cafe-light: 25 60% 95%;
+    --universe-equipement: 200 55% 40%;
+    --universe-equipement-light: 200 55% 95%;
+    --universe-service: 280 45% 45%;
+    --universe-service-light: 280 45% 95%;
+
+    /* Status colors */
+    --success: 145 60% 40%;
+    --success-light: 145 60% 95%;
+    --warning: 40 90% 50%;
+    --warning-light: 40 90% 95%;
+
+    /* Sidebar */
+    --sidebar-background: 25 35% 15%;
+    --sidebar-foreground: 40 30% 90%;
+    --sidebar-primary: 35 85% 55%;
+    --sidebar-primary-foreground: 25 35% 10%;
+    --sidebar-accent: 25 30% 22%;
+    --sidebar-accent-foreground: 40 30% 95%;
+    --sidebar-border: 25 25% 25%;
+    --sidebar-ring: 35 85% 55%;
+  }
+
+  .dark {
+    --background: 25 30% 8%;
+    --foreground: 40 25% 95%;
+
+    --card: 25 25% 12%;
+    --card-foreground: 40 25% 95%;
+
+    --popover: 25 25% 12%;
+    --popover-foreground: 40 25% 95%;
+
+    --primary: 35 70% 55%;
+    --primary-foreground: 25 30% 8%;
+
+    --secondary: 25 20% 18%;
+    --secondary-foreground: 40 25% 95%;
+
+    --muted: 25 20% 18%;
+    --muted-foreground: 40 15% 55%;
+
+    --accent: 25 25% 20%;
+    --accent-foreground: 40 25% 95%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 25 20% 20%;
+    --input: 25 20% 20%;
+    --ring: 35 70% 55%;
+
+    --sidebar-background: 25 30% 6%;
+    --sidebar-foreground: 40 25% 90%;
+    --sidebar-primary: 35 80% 55%;
+    --sidebar-primary-foreground: 25 30% 8%;
+    --sidebar-accent: 25 25% 15%;
+    --sidebar-accent-foreground: 40 25% 95%;
+    --sidebar-border: 25 20% 15%;
+    --sidebar-ring: 35 80% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .kpi-card {
+    @apply bg-card rounded-xl border border-border p-5 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5;
+  }
+
+  .kpi-value {
+    @apply text-3xl font-bold tracking-tight;
+  }
+
+  .kpi-label {
+    @apply text-sm text-muted-foreground font-medium;
+  }
+
+  .kpi-trend-up {
+    @apply text-success flex items-center gap-1 text-sm font-medium;
+  }
+
+  .kpi-trend-down {
+    @apply text-destructive flex items-center gap-1 text-sm font-medium;
+  }
+
+  .segment-badge-gc {
+    @apply bg-segment-gc-light text-segment-gc px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .segment-badge-pp {
+    @apply bg-segment-pp-light text-segment-pp px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .segment-badge-b2c {
+    @apply bg-segment-b2c-light text-segment-b2c px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .chart-container {
+    @apply bg-card rounded-xl border border-border p-6;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold text-foreground mb-6;
+  }
+}
+
+@layer utilities {
+  .text-success {
+    color: hsl(var(--success));
+  }
+
+  .text-warning {
+    color: hsl(var(--warning));
+  }
+
+  .bg-success-light {
+    background-color: hsl(var(--success-light));
+  }
+
+  .bg-warning-light {
+    background-color: hsl(var(--warning-light));
+  }
+
+  .bg-segment-gc {
+    background-color: hsl(var(--segment-gc));
+  }
+
+  .bg-segment-gc-light {
+    background-color: hsl(var(--segment-gc-light));
+  }
+
+  .text-segment-gc {
+    color: hsl(var(--segment-gc));
+  }
+
+  .bg-segment-pp {
+    background-color: hsl(var(--segment-pp));
+  }
+
+  .bg-segment-pp-light {
+    background-color: hsl(var(--segment-pp-light));
+  }
+
+  .text-segment-pp {
+    color: hsl(var(--segment-pp));
+  }
+
+  .bg-segment-b2c {
+    background-color: hsl(var(--segment-b2c));
+  }
+
+  .bg-segment-b2c-light {
+    background-color: hsl(var(--segment-b2c-light));
+  }
+
+  .text-segment-b2c {
+    color: hsl(var(--segment-b2c));
+  }
+
+  .bg-universe-cafe {
+    background-color: hsl(var(--universe-cafe));
+  }
+
+  .bg-universe-cafe-light {
+    background-color: hsl(var(--universe-cafe-light));
+  }
+
+  .text-universe-cafe {
+    color: hsl(var(--universe-cafe));
+  }
+
+  .bg-universe-equipement {
+    background-color: hsl(var(--universe-equipement));
+  }
+
+  .bg-universe-equipement-light {
+    background-color: hsl(var(--universe-equipement-light));
+  }
+
+  .text-universe-equipement {
+    color: hsl(var(--universe-equipement));
+  }
+
+  .bg-universe-service {
+    background-color: hsl(var(--universe-service));
+  }
+
+  .bg-universe-service-light {
+    background-color: hsl(var(--universe-service-light));
+  }
+
+  .text-universe-service {
+    color: hsl(var(--universe-service));
+  }
+}
