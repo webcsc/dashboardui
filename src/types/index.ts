@@ -43,8 +43,8 @@ export interface FilterState {
     regions: string[];
     /** Types de clients sélectionnés */
     clientTypes: string[];
-    /** Recherche produit (optionnel) */
-    searchProduct?: string;
+    /** ID du client B2B sélectionné (optionnel) */
+    clientId?: string;
 }
 
 /**

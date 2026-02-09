@@ -1,5 +1,5 @@
 import { useModalState } from '@/hooks/useModalState';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { BaseKpiCard } from '../cards/BaseKpiCard';
 import { Coffee, Bean, Package, Droplets } from 'lucide-react';
 import {
@@ -14,8 +14,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  DefaultTooltipContent,
 } from 'recharts';
-import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import type { FilterState } from '@/types';
 import {
   useOverview,
@@ -24,9 +24,11 @@ import {
   useProducts,
 } from '@/hooks/useDashboardData';
 import { calculateTrend } from '@/lib/trend-utils';
+import { transformDistributionData, transformEvolutionData } from '@/lib/dashboard-utils';
 import { DataTableModal } from '../modals/DataTableModal';
 import { ProductCategorySection } from '../sections/ProductCategorySection';
 import { Switch } from '@/components/ui/switch';
+import { formatWeight } from '@/lib';
 
 interface CafeViewProps {
   filters: FilterState;
@@ -36,14 +38,53 @@ interface CafeViewProps {
 const COLORS = ['hsl(25, 60%, 35%)', 'hsl(25, 45%, 50%)', 'hsl(25, 35%, 65%)'];
 
 export function CafeView({ filters, isComparing }: CafeViewProps) {
-  const { openModals, openModal, closeModal } = useModalState([
+  // Modal state for client filter
+  const [modalClientId, setModalClientId] = useState<string | undefined>();
+  const { openModals, openModal, closeModal, isAnyOpen } = useModalState([
     'caTotal',
     'volumeTotal',
     'partB2B',
     'prixMoyen',
+    // ... (rest of modals)
     'format',
     'evolution',
   ]);
+
+  // Sync modal client filter with global filter when opening
+  useEffect(() => {
+    if (isAnyOpen) {
+      setModalClientId(filters.clientId);
+    }
+  }, [isAnyOpen, filters.clientId]);
+
+  // Modal specific filters
+  const modalFilters = useMemo(() => ({
+    ...filters,
+    clientId: modalClientId
+  }), [filters, modalClientId]);
+
+  // Fetch data specifically for modals (independent of main view)
+  const { data: modalOverviewResponse } = useOverview('cafe', modalFilters, { enabled: isAnyOpen });
+  const { data: modalEvolutionResponse } = useEvolution('cafe', modalFilters, { enabled: isAnyOpen });
+  const { data: modalDistributionResponse } = useDistribution('cafe', modalFilters, { enabled: isAnyOpen });
+
+  const modalOverview = modalOverviewResponse?.data;
+
+  // Transform modal data
+  const modalFormatData = useMemo(() =>
+    transformDistributionData(modalDistributionResponse?.distribution),
+    [modalDistributionResponse]
+  );
+
+  const modalEvolutionData = useMemo(() =>
+    transformEvolutionData(
+      modalEvolutionResponse?.data,
+      filters.period.start.getFullYear().toString(),
+      12 // Limit to 12 months
+    ),
+    [modalEvolutionResponse, filters.period]
+  );
+
   // Fetch API Data
   const { data: overviewResponse } = useOverview('cafe', filters);
   const { data: evolutionResponse } = useEvolution('cafe', filters);
@@ -128,9 +169,10 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     ? Object.entries(evolution).flatMap(([year, yearData]) =>
       Object.entries(yearData).map(
         ([month, data]: [string, any]) => ({
-          mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`, // "January" -> "Jan"
+          mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`,
           ca: data.ca_total_ht,
           volume: data.volume_total,
+          actif: data.actif
         }),
       )
     )
@@ -147,9 +189,6 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   const volumeTotalPrev = compareOverview?.volume_total_global;
   const partB2BPrev = compareOverview?.part_b2b;
   const prixMoyenPrev = compareOverview?.average_price_per_kg;
-
-  // Filtrage des données locales pour la recherche
-  const searchLower = filters.searchProduct?.toLowerCase() || '';
 
   const renderProductView = () => {
     if (!products) return null;
@@ -276,7 +315,11 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     });
   };
 
-  // renderProductView()
+  const renderCustomBarCell = () => {
+    return evolutionData.map((entry, index) => (
+      <Cell key={`cell-${index}`} fill={entry.actif === 1 ? 'hsl(25, 60%, 35%)' : 'hsl(25, 35%, 65%)'} />
+    ))
+  }
   return (
     <div className="space-y-6 animate-fade-in">
       {/* KPIs globaux */}
@@ -387,12 +430,14 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
               className="flex items-center gap-1 text-sm text-muted-foreground hover:cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             >
-              Afficher le volume au lieu du CA
+              CA
               <Switch
                 id="switch-volume"
                 name="switch-volume"
+                className="data-[state=unchecked]:bg-primary"
                 onClick={handleSwitchChange}
               />
+              Volume
             </label>
             <span className="text-xs text-muted-foreground underline">
               Voir tableau
@@ -407,7 +452,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
               <YAxis
                 stroke="hsl(25, 15%, 45%)"
                 fontSize={12}
-                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                tickFormatter={(v) => (switchVolume ? evolutionData.some((i) => i.volume > 1000) ? formatWeight(v, 0) : formatWeight(v) : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(0))}
               />
               <Tooltip
                 contentStyle={{
@@ -415,136 +460,42 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
                   border: '1px solid hsl(35, 20%, 88%)',
                   borderRadius: '0.75rem',
                 }}
-                formatter={(value: number, name: string) => [
-                  name === 'CA (€)'
-                    ? `${(value || 0).toLocaleString()}€`
-                    : `${value || 0} kg`,
-                  name === 'CA (€)' ? 'CA' : 'Volume',
-                ]}
+                content={({ payload, ...props }) => {
+                  if (!payload || payload.every(p => !p.value || p.value === 0)) return null;
+                  return <DefaultTooltipContent payload={payload} {...props} />;
+                }}
+                formatter={(value: number, name: string) => {
+                  if (name === 'CA (€)') {
+                    return [`${(value || 0).toLocaleString()}€`, 'CA'];
+                  }
+                  return [formatWeight(value || 0), 'Volume'];
+                }}
               />
               <Legend />
               {switchVolume ? (
                 <Bar
                   dataKey="volume"
-                  name="Volume (kg)"
+                  name="Volume (kg/t)"
                   fill="hsl(25, 60%, 35%)"
                   radius={[4, 4, 0, 0]}
-                />
+                >
+                  {renderCustomBarCell()}
+                </Bar>
               ) : (
                 <Bar
                   dataKey="ca"
                   name="CA (€)"
                   fill="hsl(25, 60%, 35%)"
                   radius={[4, 4, 0, 0]}
-                />
+                >
+                  {renderCustomBarCell()}
+                </Bar>
               )}
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Sections détaillées par catégorie */}
-      {/* <ProductCategorySection
-        title="Café en Grains – M2L"
-        icon={<Bean className="h-5 w-5 text-universe-cafe" />}
-        columns={[
-          { key: 'type', label: 'Type' },
-          {
-            key: 'ca',
-            label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(0)}k€`,
-          },
-          { key: 'volume', label: 'Volume (kg)' },
-          { key: 'part', label: 'Part' },
-        ]}
-        data={filteredCafeGrainsM2L}
-        variant="cafe"
-      />
-
-      <ProductCategorySection
-        title="Café en Grains – Italien"
-        icon={<Bean className="h-5 w-5 text-universe-cafe" />}
-        columns={[
-          { key: 'marque', label: 'Marque' },
-          {
-            key: 'ca',
-            label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(0)}k€`,
-          },
-          { key: 'volume', label: 'Volume (kg)' },
-          { key: 'part', label: 'Part' },
-        ]}
-        data={filteredCafeGrainsItalien}
-        variant="cafe"
-      />
-
-      <ProductCategorySection
-        title="Café Moulu"
-        icon={<Coffee className="h-5 w-5 text-universe-cafe" />}
-        columns={[
-          { key: 'type', label: 'Type' },
-          {
-            key: 'ca',
-            label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(0)}k€`,
-          },
-          { key: 'volume', label: 'Volume (kg)' },
-          { key: 'part', label: 'Part' },
-        ]}
-        data={filteredCafeMoulu}
-        variant="cafe"
-      />
-
-      <ProductCategorySection
-        title="Café Dosettes"
-        icon={<Package className="h-5 w-5 text-universe-cafe" />}
-        columns={[
-          { key: 'type', label: 'Type' },
-          {
-            key: 'ca',
-            label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(0)}k€`,
-          },
-          { key: 'volume', label: 'Volume' },
-          { key: 'part', label: 'Part' },
-        ]}
-        data={filteredCafeDosette}
-        variant="cafe"
-      />
-
-      <ProductCategorySection
-        title="Thé"
-        icon={<Droplets className="h-5 w-5 text-universe-cafe" />}
-        columns={[
-          { key: 'marque', label: 'Marque' },
-          {
-            key: 'ca',
-            label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(0)}k€`,
-          },
-          { key: 'volume', label: 'Volume (g)' },
-          { key: 'part', label: 'Part' },
-        ]}
-        data={filteredThe}
-        variant="cafe"
-      />
-
-      <ProductCategorySection
-        title="Divers (Sucre, Chocolat, Gobelets...)"
-        icon={<Package className="h-5 w-5 text-universe-cafe" />}
-        columns={[
-          { key: 'categorie', label: 'Catégorie' },
-          {
-            key: 'ca',
-            label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(0)}k€`,
-          },
-          { key: 'volume', label: 'Volume' },
-          { key: 'part', label: 'Part' },
-        ]}
-        data={filteredDivers}
-        variant="cafe"
-      /> */}
       {renderProductView()}
 
       {/* Modals */}
@@ -552,6 +503,8 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         open={openModals.caTotal || false}
         onOpenChange={() => closeModal('caTotal')}
         title="Répartition CA Café"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: 'segment', label: 'Segment' },
           {
@@ -564,13 +517,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         data={[
           {
             segment: 'B2B',
-            ca: caTotal * (partB2B / 100),
-            part: `${partB2B.toFixed(1)}%`,
+            ca: (Number(modalOverview?.ca_total_ht_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
           },
           {
             segment: 'B2C / Particuliers',
-            ca: caTotal * (1 - partB2B / 100),
-            part: `${(100 - partB2B).toFixed(1)}%`,
+            ca: (Number(modalOverview?.ca_total_ht_global) || 0) * ((Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
           },
         ]}
         variant="cafe"
@@ -579,6 +532,8 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         open={openModals.volumeTotal || false}
         onOpenChange={() => closeModal('volumeTotal')}
         title="Répartition Volume"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: 'segment', label: 'Segment' },
           {
@@ -591,13 +546,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         data={[
           {
             segment: 'B2B',
-            volume: volumeTotal * (partB2B / 100),
-            part: `${partB2B.toFixed(1)}%`,
+            volume: (Number(modalOverview?.volume_total_global) || 0) * ((Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
           },
           {
             segment: 'B2C / Particuliers',
-            volume: volumeTotal * (1 - partB2B / 100),
-            part: `${(100 - partB2B).toFixed(1)}%`,
+            volume: (Number(modalOverview?.volume_total_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
           },
         ]}
         variant="cafe"
@@ -606,6 +561,8 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         open={openModals.partB2B || false}
         onOpenChange={() => closeModal('partB2B')}
         title="Évolution B2B/B2C"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: 'mois', label: 'Mois' },
           { key: 'b2b', label: 'B2B %' },
@@ -614,10 +571,6 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         data={
           evolutionData.length > 0
             ? evolutionData.map((item: any) => {
-              // Try to find the month data in the raw evolution object to get part_b2b if not in evolutionData
-              // evolutionData items are { mois, ca, volume } constructed above.
-              // We need to reconstruct or look up in 'evolution' object.
-              // Accessing 'evolution' directly is safer.
               const monthKey = Object.keys(
                 evolution?.[currentYear] || {},
               ).find(
@@ -628,7 +581,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
               const rawMonth = monthKey
                 ? evolution[currentYear][monthKey]
                 : null;
-              const val = rawMonth?.part_b2b || 0;
+              const val = rawMonth?.part_b2b | 9 | 0;
               return {
                 mois: item.mois,
                 b2b: `${(val || 0).toFixed(1)}%`,
@@ -650,14 +603,17 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         open={openModals.prixMoyen || false}
         onOpenChange={() => closeModal('prixMoyen')}
         title="Prix moyen par format"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: 'format', label: 'Format' },
-          { key: 'prix', label: 'Prix/kg', format: (v) => `${v}€` },
+          { key: 'prix', label: 'Prix/kg', format: (v) => `${(Number(v) || 0).toFixed(2)}€` },
         ]}
         data={[
-          { format: '1kg', prix: 36.03 },
-          { format: '500g', prix: 37.37 },
-          { format: '250g', prix: 51.58 },
+          {
+            format: 'Prix Moyen Global',
+            prix: modalOverview?.average_price_per_kg || 0,
+          },
         ]}
         variant="cafe"
       />
@@ -665,6 +621,8 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         open={openModals.format || false}
         onOpenChange={() => closeModal('format')}
         title="Répartition par Format"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: 'name', label: 'Format' },
           {
@@ -675,13 +633,15 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           { key: 'volume', label: 'Volume (kg)' },
           { key: 'part', label: 'Part', format: (v) => `${v}%` },
         ]}
-        data={formatData}
+        data={modalFormatData}
         variant="cafe"
       />
       <DataTableModal
         open={openModals.evolution || false}
         onOpenChange={() => closeModal('evolution')}
         title="Évolution Mensuelle Café"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: 'mois', label: 'Mois' },
           {
@@ -691,7 +651,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           },
           { key: 'volume', label: 'Volume (kg)' },
         ]}
-        data={evolutionData}
+        data={modalEvolutionData}
         variant="cafe"
       />
     </div>

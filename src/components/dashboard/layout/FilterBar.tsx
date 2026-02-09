@@ -1,17 +1,13 @@
 import { useState } from 'react';
 import {
   CalendarIcon,
-  ChevronDown,
   ArrowLeftRight,
-  Filter,
   X,
-  Search,
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+
 import { getPeriodDates, getComparePeriodDates } from '@/lib/date-utils';
 import { fr } from 'date-fns/locale';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -27,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { ClientComboBox } from '@/components/ui/client-combobox';
 
 import type { FilterState } from '@/types';
 
@@ -135,7 +132,7 @@ export function FilterBar({
       segments: [],
       regions: [],
       clientTypes: [],
-      searchProduct: '',
+      clientId: undefined,
     });
     setIsComparing(false);
     setSelectedPreset('current-month');
@@ -145,7 +142,7 @@ export function FilterBar({
     filters.segments.length +
     filters.regions.length +
     filters.clientTypes.length +
-    (filters.searchProduct ? 1 : 0) +
+    (filters.clientId ? 1 : 0) +
     (isComparing ? 1 : 0);
 
   return (
@@ -257,18 +254,15 @@ export function FilterBar({
 
         <div className="flex-1" />
 
-        {/* Product Search */}
-        {/* <div className="relative w-[200px]">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher un client..."
-            value={filters.searchProduct || ''}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, searchProduct: e.target.value })
+        {/* Client Search */}
+        <div className="relative">
+          <ClientComboBox
+            value={filters.clientId}
+            onChange={(value) =>
+              onFiltersChange({ ...filters, clientId: value })
             }
-            className="pl-8 h-9 bg-background"
           />
-        </div> */}
+        </div>
 
         {/* More Filters Toggle */}
         {/* <Button

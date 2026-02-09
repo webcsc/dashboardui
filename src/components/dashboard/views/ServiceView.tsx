@@ -8,6 +8,8 @@ import { useOverview, useEvolution, useDistribution } from "@/hooks/useDashboard
 import { calculateTrend } from "@/lib/trend-utils";
 import { DataTableModal } from "../modals/DataTableModal";
 import { ProductCategorySection } from "../sections/ProductCategorySection";
+import { transformServiceDistribution, transformServiceEvolution } from "@/lib/dashboard-utils";
+import { useState, useEffect } from "react";
 
 interface ServiceViewProps {
   filters: FilterState;
@@ -90,12 +92,34 @@ const echangeStandardData = [
 ];
 
 export function ServiceView({ filters, isComparing }: ServiceViewProps) {
-  const { openModals, openModal, closeModal } = useModalState(['caTotal', 'installation', 'reparation', 'cartouche', 'pretEchange', 'evolution', 'repartition']);
+  const { openModals, openModal, closeModal, isAnyOpen } = useModalState(['caTotal', 'installation', 'reparation', 'cartouche', 'pretEchange', 'evolution', 'repartition']);
+  const [modalClientId, setModalClientId] = useState<string | undefined>();
+
+  // Sync modal filter
+  useEffect(() => {
+    if (isAnyOpen) {
+      setModalClientId(filters.clientId);
+    }
+  }, [isAnyOpen, filters.clientId]);
+
+  const modalFilters = useMemo(() => ({
+    ...filters,
+    clientId: modalClientId
+  }), [filters, modalClientId]);
 
   // Fetch API Data
   const { data: overviewResponse } = useOverview('service', filters);
   const { data: evolutionResponse } = useEvolution('service', filters);
   const { data: distributionResponse } = useDistribution('service', filters);
+
+  // Fetch API Data (Modals)
+  const { data: modalOverviewResponse } = useOverview('service', modalFilters, { enabled: isAnyOpen });
+  const { data: modalEvolutionResponse } = useEvolution('service', modalFilters, { enabled: isAnyOpen });
+  const { data: modalDistributionResponse } = useDistribution('service', modalFilters, { enabled: isAnyOpen });
+
+  const modalOverview = modalOverviewResponse?.data;
+  const modalEvolution = modalEvolutionResponse?.data;
+  const modalDistribution = modalDistributionResponse?.distribution;
 
   // Comparison Data
   const comparisonFilters = useMemo(() => ({
@@ -113,14 +137,8 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const distribution = distributionResponse?.distribution;
 
   // Transform Distribution Data
-  const repartitionData = useMemo(() => {
-    if (!distribution) return [];
-    return Object.entries(distribution).map(([key, item]: [string, any]) => ({
-      name: item.poid_unit || key, // Using poid_unit as label (e.g., "Installation")
-      ca: item.total_ht,
-      value: parseFloat(item.percentage_ht) || 0,
-    })).filter((item) => item.value >= 1).sort((a, b) => b.value - a.value);
-  }, [distribution]);
+  const repartitionData = useMemo(() => transformServiceDistribution(distribution), [distribution]);
+  const modalRepartitionData = useMemo(() => transformServiceDistribution(modalDistribution), [modalDistribution]);
 
   // Helper to calculate trend
   const getTrend = (current?: number, previous?: number) => {
@@ -134,38 +152,11 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   };
 
   // Transform Evolution Data for Chart
-  const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const isMoreAYear = evolution && Object.entries(evolution)?.length > 2;
-
-  const evolutionData = evolution ? Object.entries(evolution)
-    .flatMap(([year, yearData]) =>
-      Object.entries(yearData)
-        .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
-        .map(([month, monthItems]) => {
-          const monthData = Array.isArray(monthItems) ? monthItems : [monthItems];
-          const aggregated = {
-            mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`,
-            reparation: 0,
-            installation: 0,
-            cartouche: 0,
-            pret: 0,
-            echange: 0,
-            total: 0
-          };
-          monthData.forEach((item: { universe: string; ca_total_ht: number }) => {
-            aggregated.total += item.ca_total_ht;
-            if (item.universe === 'reparation') aggregated.reparation += item.ca_total_ht;
-            else if (item.universe === 'installation') aggregated.installation += item.ca_total_ht;
-            else if (item.universe === 'cartouche') aggregated.cartouche += item.ca_total_ht;
-            else if (item.universe === 'pret') aggregated.pret += item.ca_total_ht;
-            else if (item.universe === 'echange') aggregated.echange += item.ca_total_ht;
-          });
-
-          return aggregated;
-        })
-    ) : [];
-  evolutionData?.pop()
+  const currentYear = filters.period.start.getFullYear().toString();
+  const evolutionData = useMemo(() => transformServiceEvolution(evolution, currentYear, 12), [evolution, currentYear]);
+  const modalEvolutionData = useMemo(() => transformServiceEvolution(modalEvolution, currentYear, 12), [modalEvolution, currentYear]);
   const caTotal = overview?.ca_total_ht_global || 0;
+  const modalCaTotal = modalOverview?.ca_total_ht_global || 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -316,7 +307,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           { key: "interventions", label: "Interventions" },
           { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€` },
         ]}
-        data={installationData.filter(item => item.type.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={installationData}
         variant="service"
       />
 
@@ -335,7 +326,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
               { key: "interventions", label: "Interventions", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
-            data={reparationSousAssistanceData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={reparationSousAssistanceData}
             variant="service"
             compact
           />
@@ -347,7 +338,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
               { key: "interventions", label: "Interventions", width: "w-[20%]" },
               { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€`, width: "w-[20%]" },
             ]}
-            data={reparationHorsAssistanceData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={reparationHorsAssistanceData}
             variant="service"
             compact
           />
@@ -364,7 +355,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           { key: "interventions", label: "Interventions", width: "w-[20%]" },
           { key: "part", label: "Part", width: "w-[20%]" },
         ]}
-        data={cartoucheData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={cartoucheData}
         variant="service"
       />
 
@@ -378,7 +369,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           { key: "prets", label: "Prêts", width: "w-[20%]" },
           { key: "duréeMoy", label: "Durée moy.", width: "w-[20%]" },
         ]}
-        data={pretMachineData.filter(item => item.type.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={pretMachineData}
         variant="service"
       />
 
@@ -392,7 +383,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           { key: "echanges", label: "Échanges", width: "w-[20%]" },
           { key: "part", label: "Part", width: "w-[20%]" },
         ]}
-        data={echangeStandardData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={echangeStandardData}
         variant="service"
       />
 
@@ -401,6 +392,8 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         open={openModals.caTotal || false}
         onOpenChange={() => closeModal('caTotal')}
         title="Répartition CA Service"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "service", label: "Service" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(1)}k€` },
@@ -409,28 +402,28 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         data={[
           {
             service: "Réparation",
-            ca: overview?.ca_reparation_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_reparation_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_reparation_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_reparation_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
           {
             service: "Installation",
-            ca: overview?.ca_installation_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_installation_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_installation_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_installation_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
           {
             service: "Changement cartouche",
-            ca: overview?.ca_cartouche_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_cartouche_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_cartouche_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_cartouche_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
           {
             service: "Prêt machine",
-            ca: overview?.ca_pret_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_pret_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_pret_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_pret_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
           {
             service: "Échange standard",
-            ca: overview?.ca_echange_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_echange_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_echange_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_echange_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
         ].sort((a, b) => b.ca - a.ca)}
         variant="service"
@@ -439,50 +432,58 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         open={openModals.installation || false}
         onOpenChange={() => closeModal('installation')}
         title="Détail installations"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "type", label: "Type" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "interventions", label: "Interventions" },
         ]}
-        data={installationData.filter(item => item.type.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={installationData}
         variant="service"
       />
       <DataTableModal
         open={openModals.reparation || false}
         onOpenChange={() => closeModal('reparation')}
         title="Réparations par marque"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "interventions", label: "Interventions" },
         ]}
-        data={reparationSousAssistanceData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={reparationSousAssistanceData}
         variant="service"
       />
       <DataTableModal
         open={openModals.cartouche || false}
         onOpenChange={() => closeModal('cartouche')}
         title="Cartouches par marque"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "interventions", label: "Interventions" },
         ]}
-        data={cartoucheData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={cartoucheData}
         variant="service"
       />
       <DataTableModal
         open={openModals.pretEchange || false}
         onOpenChange={() => closeModal('pretEchange')}
         title="Prêts et échanges"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "type", label: "Type" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "nombre", label: "Nombre" },
         ]}
         data={[
-          { type: "Prêt machine", ca: overview?.ca_pret_total_ht || 0, nombre: 175 }, // Nombre still mocked as missing in API
-          { type: "Échange standard", ca: overview?.ca_echange_total_ht || 0, nombre: 68 },
+          { type: "Prêt machine", ca: modalOverview?.ca_pret_total_ht || 0, nombre: 175 },
+          { type: "Échange standard", ca: modalOverview?.ca_echange_total_ht || 0, nombre: 68 },
         ]}
         variant="service"
       />
@@ -490,6 +491,8 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         open={openModals.evolution || false}
         onOpenChange={() => closeModal('evolution')}
         title="Évolution Mensuelle Service"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "mois", label: "Mois" },
           { key: "installation", label: "Installation", format: (v) => `${(v || 0).toLocaleString()}€` },
@@ -498,19 +501,21 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           { key: "pret", label: "Prêt", format: (v) => `${(v || 0).toLocaleString()}€` },
           { key: "echange", label: "Échange", format: (v) => `${(v || 0).toLocaleString()}€` },
         ]}
-        data={evolutionData.length > 0 ? evolutionData : evolutionMensuelleData}
+        data={modalEvolutionData.length > 0 ? modalEvolutionData : (modalEvolutionResponse ? [] : evolutionMensuelleData)}
         variant="service"
       />
       <DataTableModal
         open={openModals.repartition || false}
         onOpenChange={() => closeModal('repartition')}
         title="Répartition par Type de Service"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "name", label: "Service" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "value", label: "Part", format: (v) => `${v}%` },
         ]}
-        data={repartitionData}
+        data={modalRepartitionData}
         variant="service"
       />
     </div>

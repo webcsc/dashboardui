@@ -9,6 +9,8 @@ import { calculateTrend } from "@/lib/trend-utils";
 import { DataTableModal } from "../modals/DataTableModal";
 import { ProductCategorySection } from "../sections/ProductCategorySection";
 import { EvolutionMonthData } from "@/services/dashboard-api";
+import { transformEquipementDistribution, transformEquipementEvolution } from "@/lib/dashboard-utils";
+import { useState, useEffect } from "react";
 
 interface EquipementViewProps {
   filters: FilterState;
@@ -105,12 +107,35 @@ const accessoiresVenteData = [
 ];
 
 export function EquipementView({ filters, isComparing }: EquipementViewProps) {
-  const { openModals, openModal, closeModal } = useModalState(['caTotal', 'location', 'vente', 'assistance', 'entretien', 'evolution']);
+  const { openModals, openModal, closeModal, isAnyOpen } = useModalState(['caTotal', 'location', 'vente', 'assistance', 'entretien', 'evolution']);
+  const [modalClientId, setModalClientId] = useState<string | undefined>();
 
-  // Fetch API Data
+  // Sync modal filter with global filter when modal opens
+  useEffect(() => {
+    if (isAnyOpen) {
+      setModalClientId(filters.clientId);
+    }
+  }, [isAnyOpen, filters.clientId]);
+
+  // Modal specific filters
+  const modalFilters = useMemo(() => ({
+    ...filters,
+    clientId: modalClientId
+  }), [filters, modalClientId]);
+
+  // Fetch API Data (Main View)
   const { data: overviewResponse } = useOverview('equipement', filters);
   const { data: evolutionResponse } = useEvolution('equipement', filters);
   const { data: distributionResponse } = useDistribution('equipement', filters);
+
+  // Fetch API Data (Modals)
+  const { data: modalOverviewResponse } = useOverview('equipement', modalFilters, { enabled: isAnyOpen });
+  const { data: modalEvolutionResponse } = useEvolution('equipement', modalFilters, { enabled: isAnyOpen });
+  const { data: modalDistributionResponse } = useDistribution('equipement', modalFilters, { enabled: isAnyOpen });
+
+  const modalOverview = modalOverviewResponse?.data;
+  const modalEvolution = modalEvolutionResponse?.data;
+  const modalDistribution = modalDistributionResponse?.distribution;
 
   // Comparison Data
   const comparisonFilters = useMemo(() => ({
@@ -128,14 +153,8 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
   const distribution = distributionResponse?.distribution;
 
   // Transform Distribution Data
-  const repartitionData = useMemo(() => {
-    if (!distribution) return [];
-    return Object.entries(distribution).map(([key, item]: [string, any]) => ({
-      name: item.poid_unit || key,
-      ca: item.ca_total_ht,
-      value: parseFloat(item.percentage) || 0,
-    })).sort((a, b) => b.value - a.value);
-  }, [distribution]);
+  const repartitionData = useMemo(() => transformEquipementDistribution(distribution), [distribution]);
+  const modalRepartitionData = useMemo(() => transformEquipementDistribution(modalDistribution), [modalDistribution]);
 
   // Helper to calculate trend
   const getTrend = (current?: number, previous?: number) => {
@@ -150,34 +169,8 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
 
   // Transform Evolution Data for Chart
   const currentYear = filters.period.start.getFullYear().toString();
-  const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-  const evolutionData = evolution?.[currentYear] ? Object.entries(evolution[currentYear])
-    .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
-    .map(([month, data]: [string, any]) => {
-      const stats = data.reduce((acc: any, item: any) => {
-        const mapping: Record<string, string> = {
-          "MACHINES": "vente",
-          "LOCATION MACHINES": "location",
-          "Assistance Premium": "assistance",
-          "PACK ENTRETIEN": "entretien"
-        };
-        const key = mapping[item.universe];
-        if (key) {
-          acc[key] = item.ca_total_ht;
-        }
-        return acc;
-      }, {});
-
-      return {
-        mois: month.substring(0, 3), // "January" -> "Jan"
-        location: stats.location || 0,
-        vente: stats.vente || 0,
-        assistance: stats.assistance || 0,
-        entretien: stats.entretien || 0,
-        total: data.map((universData: EvolutionMonthData) => universData.ca_total_ht).reduce((a: number, b: number) => a + b, 0)
-      };
-    }) : [];
+  const evolutionData = useMemo(() => transformEquipementEvolution(evolution, currentYear, 12), [evolution, currentYear]);
+  const modalEvolutionData = useMemo(() => transformEquipementEvolution(modalEvolution, currentYear, 12), [modalEvolution, currentYear]);
 
 
   // If we have API data, we might want to prioritize it, but for the stacked bar chart which requires breakdown, 
@@ -185,6 +178,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
   // For this step, I will map the GLOBAL CA KPI.
 
   const caTotal = overview?.ca_total_ht_global || 0;
+  const modalCaTotal = modalOverview?.ca_total_ht_global || 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -298,7 +292,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
-            data={locationMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={locationMarqueData}
             variant="equipement"
             compact
           />
@@ -310,7 +304,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
               { key: "unites", label: "Unités", width: "w-[20%]" },
             ]}
-            data={locationRefData.filter(item => item.reference.toLowerCase().includes(filters.searchProduct?.toLowerCase() || '') || item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={locationRefData}
             variant="equipement"
             compact
           />
@@ -323,7 +317,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             { key: "unites", label: "Unités", width: "w-[20%]" },
             { key: "part", label: "Part", width: "w-[20%]" },
           ]}
-          data={accessoiresLocationData.filter(item => item.typologie.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+          data={accessoiresLocationData}
           variant="equipement"
         />
       </div>
@@ -343,7 +337,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "contrats", label: "Contrats", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
-            data={assistanceMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={assistanceMarqueData}
             variant="equipement"
             compact
           />
@@ -355,7 +349,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
               { key: "contrats", label: "Contrats", width: "w-[20%]" },
             ]}
-            data={assistanceRefData.filter(item => item.reference.toLowerCase().includes(filters.searchProduct?.toLowerCase() || '') || item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={assistanceRefData}
             variant="equipement"
             compact
           />
@@ -377,7 +371,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
-            data={entretienTypologieData.filter(item => item.typologie.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={entretienTypologieData}
             variant="equipement"
             compact
           />
@@ -389,7 +383,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
-            data={entretienMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={entretienMarqueData}
             variant="equipement"
             compact
           />
@@ -411,7 +405,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
-            data={venteMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={venteMarqueData}
             variant="equipement"
             compact
           />
@@ -423,7 +417,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
               { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
               { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€`, width: "w-[20%]" },
             ]}
-            data={venteRefData.filter(item => item.reference.toLowerCase().includes(filters.searchProduct?.toLowerCase() || '') || item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+            data={venteRefData}
             variant="equipement"
             compact
           />
@@ -436,7 +430,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             { key: "unites", label: "Unités", width: "w-[20%]" },
             { key: "part", label: "Part", width: "w-[20%]" },
           ]}
-          data={accessoiresVenteData.filter(item => item.typologie.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+          data={accessoiresVenteData}
           variant="equipement"
         />
       </div>
@@ -446,6 +440,8 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         open={openModals.caTotal || false}
         onOpenChange={() => closeModal('caTotal')}
         title="Répartition CA Équipement"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "categorie", label: "Catégorie" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(1)}k€` },
@@ -454,23 +450,23 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         data={[
           {
             categorie: "Location machines",
-            ca: overview?.ca_location_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_location_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_location_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_location_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
           {
             categorie: "Vente machines",
-            ca: overview?.ca_vente_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_vente_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_vente_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_vente_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
           {
             categorie: "Assistance premium",
-            ca: overview?.ca_assistance_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_assistance_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_assistance_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_assistance_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
           {
             categorie: "Produits entretien",
-            ca: overview?.ca_entretien_total_ht || 0,
-            part: caTotal ? `${((overview?.ca_entretien_total_ht || 0) / caTotal * 100).toFixed(1)}%` : "0%"
+            ca: modalOverview?.ca_entretien_total_ht || 0,
+            part: modalCaTotal ? `${((modalOverview?.ca_entretien_total_ht || 0) / modalCaTotal * 100).toFixed(1)}%` : "0%"
           },
         ].sort((a, b) => b.ca - a.ca)}
         variant="equipement"
@@ -479,54 +475,64 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         open={openModals.location || false}
         onOpenChange={() => closeModal('location')}
         title="Top marques location"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "unites", label: "Unités" },
         ]}
-        data={locationMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={locationMarqueData}
         variant="equipement"
       />
       <DataTableModal
         open={openModals.vente || false}
         onOpenChange={() => closeModal('vente')}
         title="Top marques vente"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "unites", label: "Unités" },
         ]}
-        data={venteMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={venteMarqueData}
         variant="equipement"
       />
       <DataTableModal
         open={openModals.assistance || false}
         onOpenChange={() => closeModal('assistance')}
         title="Contrats assistance"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "contrats", label: "Contrats" },
         ]}
-        data={assistanceMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={assistanceMarqueData}
         variant="equipement"
       />
       <DataTableModal
         open={openModals.entretien || false}
         onOpenChange={() => closeModal('entretien')}
         title="Répartition entretien"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "typologie", label: "Type" },
           { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
           { key: "part", label: "Part" },
         ]}
-        data={entretienTypologieData.filter(item => item.typologie.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
+        data={entretienTypologieData}
         variant="equipement"
       />
       <DataTableModal
         open={openModals.evolution || false}
         onOpenChange={() => closeModal('evolution')}
         title="Évolution Mensuelle Équipement"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
         columns={[
           { key: "mois", label: "Mois" },
           { key: "location", label: "Location", format: (v) => `${(v || 0).toLocaleString()}€` },
@@ -534,7 +540,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           { key: "assistance", label: "Assistance", format: (v) => `${(v || 0).toLocaleString()}€` },
           { key: "entretien", label: "Entretien", format: (v) => `${(v || 0).toLocaleString()}€` },
         ]}
-        data={evolutionData}
+        data={modalEvolutionData}
         variant="equipement"
       />
     </div >

@@ -8,6 +8,7 @@ import { calculateTrend } from "@/lib/trend-utils";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useModalState } from "@/hooks/useModalState";
 import { DataTableModal } from "../modals/DataTableModal";
+import { useState, useEffect } from "react";
 
 interface RecapUniversViewProps {
   filters: FilterState;
@@ -20,6 +21,26 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
 
   // Fetch summary data for current period
   const { data: summaryResponse } = useSummary(filters);
+
+  const [modalClientId, setModalClientId] = useState<string | undefined>();
+  // Sync modal filter
+  useEffect(() => {
+    if (openModals.evolution) {
+      setModalClientId(filters.clientId);
+    }
+  }, [openModals.evolution, filters.clientId]);
+
+  const modalFilters = useMemo(() => ({
+    ...filters,
+    clientId: modalClientId
+  }), [filters, modalClientId]);
+
+  // Fetch summary data for modal (specific client filter)
+  const { data: modalSummaryResponse } = useSummary(modalFilters, {
+    enabled: !!openModals.evolution
+  });
+
+  const modalSummary = modalSummaryResponse;
 
   // Comparison data for previous period
   const comparisonFilters = useMemo(() => ({
@@ -163,6 +184,55 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
         })
       }));
   }, [summary, compareSummary, currentYear, isComparing, comparisonFilters]);
+
+  // Modal Evolution Data transformation (uses modalSummary)
+  const modalEvolutionChartData = useMemo(() => {
+    if (!modalSummary?.evolution) return [];
+
+    const monthlyData: Record<string, { cafe: number; equipement: number; service: number; }> = {};
+
+    // Process current period cafe evolution (object structure)
+    const cafeEvolution = modalSummary.evolution.cafe?.[currentYear];
+    if (cafeEvolution) {
+      Object.entries(cafeEvolution).forEach(([month, data]: [string, any]) => {
+        if (month !== 'total' && data?.ca_total_ht) {
+          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
+          monthlyData[month].cafe = data.ca_total_ht;
+        }
+      });
+    }
+
+    // Process current period equipement evolution (array structure)
+    const equipementEvolution = modalSummary.evolution.equipement?.[currentYear];
+    if (equipementEvolution) {
+      Object.entries(equipementEvolution).forEach(([month, dataArray]: [string, any]) => {
+        if (month !== 'total' && Array.isArray(dataArray)) {
+          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
+          monthlyData[month].equipement = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
+        }
+      });
+    }
+
+    // Process current period service evolution (array structure)
+    const serviceEvolution = modalSummary.evolution.service?.[currentYear];
+    if (serviceEvolution) {
+      Object.entries(serviceEvolution).forEach(([month, dataArray]: [string, any]) => {
+        if (month !== 'total' && Array.isArray(dataArray)) {
+          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
+          monthlyData[month].service = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
+        }
+      });
+    }
+
+    return Object.entries(monthlyData)
+      .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
+      .map(([month, data]) => ({
+        mois: frenchMonths[month] || month.substring(0, 3),
+        cafe: data.cafe,
+        equipement: data.equipement,
+        service: data.service,
+      }));
+  }, [modalSummary, currentYear, frenchMonths, monthOrder]);
 
 
   return (
@@ -441,7 +511,9 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             format: (v) => `${((v || 0) / 1000).toFixed(1)}k€`
           }
         ]}
-        data={evolutionChartData.map(item => ({
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
+        data={modalEvolutionChartData.map(item => ({
           ...item,
           total: (item.cafe || 0) + (item.equipement || 0) + (item.service || 0)
         }))}

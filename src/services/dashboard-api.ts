@@ -45,6 +45,7 @@ export interface EvolutionMonthData {
     ca_total_ht: number;
     volume_total: number;
     part_b2b: number;
+    actif: 0 | 1;
     average_price_per_kg: number;
 }
 
@@ -174,6 +175,14 @@ export interface SummaryResponse {
 }
 
 /**
+ * Interface pour un tiers (client B2B)
+ */
+export interface Thirdparty {
+    id: string;
+    name: string;
+}
+
+/**
  * Headers d'authentification Basic
  */
 const API_TOKEN = import.meta.env.VITE_API_TOKEN || '';
@@ -220,8 +229,8 @@ export async function fetchOverview(
         queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
     }
 
-    if (filters.searchProduct) {
-        queryParams.append('search_product', filters.searchProduct);
+    if (filters.clientId) {
+        queryParams.append('fk_soc', filters.clientId);
     }
 
     if (filters.segments && filters.segments.length > 0) {
@@ -279,8 +288,8 @@ export async function fetchEvolution(
         queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
     }
 
-    if (filters.searchProduct) {
-        queryParams.append('search_product', filters.searchProduct);
+    if (filters.clientId) {
+        queryParams.append('fk_soc', filters.clientId);
     }
 
 
@@ -372,8 +381,8 @@ export async function fetchSummary(
         queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
     }
 
-    if (filters.searchProduct) {
-        queryParams.append('search_product', filters.searchProduct);
+    if (filters.clientId) {
+        queryParams.append('fk_soc', filters.clientId);
     }
 
     if (filters.segments && filters.segments.length > 0) {
@@ -431,8 +440,8 @@ export async function fetchProducts(
         queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
     }
 
-    if (filters.searchProduct) {
-        queryParams.append('search_product', filters.searchProduct);
+    if (filters.clientId) {
+        queryParams.append('fk_soc', filters.clientId);
     }
 
 
@@ -456,4 +465,43 @@ export async function fetchProducts(
     }
 
     return response.json();
+}
+
+/**
+ * Récupère la liste des tiers (clients B2B) actifs depuis Dolibarr.
+ *
+ * @returns Une promesse contenant la liste des tiers formatés (id, name).
+ *
+ * @throws {Error} Si la requête échoue (status non-2xx).
+ *
+ * @example
+ * ```typescript
+ * const thirdparties = await fetchThirdparties();
+ * console.log(thirdparties);
+ * ```
+ */
+export async function fetchThirdparties(): Promise<Thirdparty[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('sortfield', 't.rowid');
+    queryParams.append('sortorder', 'ASC');
+    queryParams.append('sqlfilters', 't.status:=:1');
+
+    const url = `${API_BASE_URL}/thirdparties?${queryParams.toString()}`;
+
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Thirdparties API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Format data to only include id and name
+    return data.map((item: any) => ({
+        id: item.id?.toString() || '',
+        name: item.name || '',
+    }));
 }

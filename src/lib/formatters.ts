@@ -90,3 +90,28 @@ export const formatPrice = (value: number, decimals: number = 2): string => {
     return `${value.toFixed(decimals)}€`;
 };
 
+const KG_PER_TONNE = 1000;
+
+/**
+ * Formate un poids en kg ou tonnes selon une limite
+ * 
+ * @param kg - Poids en Kg
+ * @param thresholdKg - Limite en Kg pour changer en T
+ * @returns Chaîne formatée
+ * 
+ * @example
+ * ```typescript
+ * formatWeight(500) // "500 kg"
+ * formatWeight(2500) // "2.5 t"
+ * ```
+ */
+export function formatWeight(kg: number, thresholdKg = 1000): string {
+  const safe = Number(kg) || 0;
+
+  if (safe >= thresholdKg) {
+    const t = safe / KG_PER_TONNE;
+    return `${t.toLocaleString(undefined, { maximumFractionDigits: 2 })} t`;
+  }
+
+  return `${safe.toLocaleString('fr-FR')} kg`;
+}

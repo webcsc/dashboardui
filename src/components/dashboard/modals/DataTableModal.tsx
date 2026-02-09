@@ -20,10 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Filter } from "lucide-react";
+import { X, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ClientComboBox } from "@/components/ui/client-combobox";
 
 export interface TableColumn {
   key: string;
@@ -40,6 +40,8 @@ export interface DataTableModalProps {
   columns: TableColumn[];
   data: Record<string, any>[];
   variant?: "default" | "gc" | "pp" | "b2c" | "cafe" | "equipement" | "service";
+  clientId?: string;
+  onClientChange?: (id: string) => void;
 }
 
 const variantStyles = {
@@ -69,6 +71,8 @@ export function DataTableModal({
   columns,
   data,
   variant = "default",
+  clientId,
+  onClientChange,
 }: DataTableModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -77,10 +81,38 @@ export function DataTableModal({
   // Get unique values for each filterable column
   const filterOptions = useMemo(() => {
     const options: Record<string, string[]> = {};
+    const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    const getMonthValue = (val: string) => {
+      // Handle "Jan", "Jan 2025", "January" cases
+      const parts = val.split(" ");
+      const monthPart = parts[0].substring(0, 3);
+      const yearPart = parts.length > 1 ? parseInt(parts[1]) : 0;
+      const monthIndex = monthOrder.indexOf(monthPart);
+
+      if (monthIndex === -1) return -1; // Not a month
+      return yearPart * 12 + monthIndex; // Year takes precedence
+    };
+
     columns.forEach((col) => {
       if (col.filterable !== false) {
         const uniqueValues = [...new Set(data.map((row) => String(row[col.key])))];
-        options[col.key] = uniqueValues.sort();
+
+        // Check if values look like months
+        const isMonthColumn = uniqueValues.some(v => getMonthValue(v) !== -1);
+
+        if (isMonthColumn) {
+          options[col.key] = uniqueValues.sort((a, b) => {
+            const valA = getMonthValue(a);
+            const valB = getMonthValue(b);
+            if (valA !== -1 && valB !== -1) {
+              return valA - valB;
+            }
+            return a.localeCompare(b);
+          });
+        } else {
+          options[col.key] = uniqueValues.sort();
+        }
       }
     });
     return options;
@@ -140,7 +172,17 @@ export function DataTableModal({
 
         {/* Filter bar */}
         <div className="space-y-3 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
+          <div className="flex justify-end items-center gap-2">
+            {/* Client Filter */}
+            {onClientChange && (
+              <div className="mr-2">
+                <ClientComboBox
+                  value={clientId}
+                  onChange={onClientChange}
+                />
+              </div>
+            )}
+
             {/* Search input */}
             {/* <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
