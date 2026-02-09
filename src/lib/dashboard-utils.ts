@@ -1,5 +1,5 @@
 
-import { DistributionResponse, EvolutionResponse } from "@/services/dashboard-api";
+import { DistributionResponse, EvolutionMonthData, EvolutionResponse, EvolutionData } from '@/services/dashboard-api';
 
 /**
  * Transforme les données de distribution pour l'affichage (Pie Chart + Table)
@@ -109,7 +109,6 @@ export const transformServiceDistribution = (distribution: DistributionResponse[
             ca: item.total_ht,
             value: parseFloat(item.percentage_ht) || 0,
         }))
-        .filter((item) => item.value >= 1)
         .sort((a, b) => b.value - a.value);
 };
 
@@ -140,14 +139,12 @@ export const transformServiceEvolution = (
     const isMoreAYearSvc = keys.length > 1 || keys.some(k => k !== currentYear);
 
     const data = evolution ? Object.entries(evolution)
-        .sort(([yearA], [yearB]) => yearA.localeCompare(yearB)) // Sort years ascending
         .flatMap(([year, yearData]) =>
             Object.entries(yearData)
-                .filter(([month]) => monthOrder.includes(month)) // Exclude 'total' and other non-month keys
-                .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
                 .map(([month, monthItems]) => {
-                    const monthData = Array.isArray(monthItems) ? monthItems : [monthItems];
+                    const monthData = Object.entries(monthItems).flatMap(([cat, universData]) => ({ universe: cat, ...universData}));
                     const aggregated = {
+                        actif: monthData[0]?.actif || 0,
                         mois: `${month.substring(0, 3)}${isMoreAYearSvc ? ' ' + year : ''}`,
                         reparation: 0,
                         installation: 0,
@@ -170,11 +167,7 @@ export const transformServiceEvolution = (
 
     // Always take the last 12 months (rolling window)
     // This ensures short periods (1 month, 3 months) still show 12 months of history
-    const targetMonthCount = maxMonths || 12;
-    if (data.length > targetMonthCount) {
-        return data.slice(-targetMonthCount);
-    }
-
+    data.splice(-1)
     return data;
 };
 export const transformEquipementDistribution = (distribution: DistributionResponse['distribution'] | undefined) => {
@@ -207,11 +200,17 @@ export const transformEquipementEvolution = (
         return Object.entries(yearData)
             .filter(([month]) => monthOrder.includes(month)) // Exclude 'total' and other non-month keys
             .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
-            .map(([month, data]: [string, any]) => {
+            .flatMap(([month, data]: [string, EvolutionMonthData]) => {
+                const dataARR = Object.entries(data).flatMap(([cat, universData]: [string, EvolutionData]) => {
+                    return {
+                        universe: cat,
+                        ...universData
+                    }
+                })
                 // Ensure data is an array (API might return single object or array)
-                const dataArray = Array.isArray(data) ? data : [data];
+                const dataArray = Array.isArray(dataARR) ? dataARR : [dataARR];
 
-                const stats = dataArray.reduce((acc: any, item: any) => {
+                const stats = dataARR.reduce((acc: any, item: any) => {
                     const mapping: Record<string, string> = {
                         "MACHINES": "vente",
                         "LOCATION MACHINES": "location",
@@ -224,8 +223,8 @@ export const transformEquipementEvolution = (
                     }
                     return acc;
                 }, {});
-
                 return {
+                    actif: dataARR[0].actif,
                     mois: `${month.substring(0, 3)}${isMoreAYear ? ' ' + year : ''}`,
                     location: stats.location || 0,
                     vente: stats.vente || 0,

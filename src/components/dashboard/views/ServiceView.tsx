@@ -286,10 +286,26 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
                 <Bar dataKey="total" name="CA Total" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} />
               ) : (
                 <>
-                  <Bar dataKey="reparation" name="Échange" fill="hsl(281, 46%, 24%)" radius={[4, 4, 0, 0]} stackId="a" />
-                  <Bar dataKey="reparation" name="Réparation" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} stackId="a" />
-                  <Bar dataKey="installation" name="Installation" fill="hsl(280, 40%, 55%)" radius={[4, 4, 0, 0]} stackId="a" />
-                  <Bar dataKey="cartouche" name="Cartouche" fill="hsl(280, 35%, 65%)" radius={[4, 4, 0, 0]} stackId="a" />
+                  <Bar dataKey="reparation" name="Échange" fill="hsl(281, 46%, 24%)" radius={[4, 4, 0, 0]} stackId="a">
+                    { evolutionData.map((entry) => (
+                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="reparation" name="Réparation" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} stackId="a" >
+                    { evolutionData.map((entry) => (
+                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="installation" name="Installation" fill="hsl(280, 40%, 55%)" radius={[4, 4, 0, 0]} stackId="a">
+                    { evolutionData.map((entry) => (
+                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="cartouche" name="Cartouche" fill="hsl(280, 35%, 65%)" radius={[4, 4, 0, 0]} stackId="a">
+                    { evolutionData.map((entry) => (
+                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
+                    ))}
+                  </Bar>
                 </>
               )}
             </BarChart>

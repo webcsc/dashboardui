@@ -29,6 +29,7 @@ import { DataTableModal } from '../modals/DataTableModal';
 import { ProductCategorySection } from '../sections/ProductCategorySection';
 import { Switch } from '@/components/ui/switch';
 import { formatWeight } from '@/lib';
+import { EvolutionData, EvolutionMonthData } from '@/services/dashboard-api';
 
 interface CafeViewProps {
   filters: FilterState;
@@ -167,12 +168,14 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
 
   const evolutionData = evolution
     ? Object.entries(evolution).flatMap(([year, yearData]) =>
-      Object.entries(yearData).map(
-        ([month, data]: [string, any]) => ({
-          mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`,
-          ca: data.ca_total_ht,
-          volume: data.volume_total,
-          actif: data.actif
+      Object.entries(yearData).flatMap(([month, monthData]: [string, EvolutionMonthData]) =>
+        Object.entries(monthData).flatMap(([_name, data]: [string, EvolutionData]) => {
+          return {
+            mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`,
+            ca: data.ca_total_ht,
+            volume: data.volume_total,
+            actif: data.actif
+          }
         }),
       )
     )
@@ -475,7 +478,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
               {switchVolume ? (
                 <Bar
                   dataKey="volume"
-                  name="Volume (kg/t)"
+                  name="Volume"
                   fill="hsl(25, 60%, 35%)"
                   radius={[4, 4, 0, 0]}
                 >

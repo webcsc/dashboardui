@@ -9,6 +9,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useModalState } from "@/hooks/useModalState";
 import { DataTableModal } from "../modals/DataTableModal";
 import { useState, useEffect } from "react";
+import { EvolutionData, EvolutionMonthData } from '@/services/dashboard-api';
 
 interface RecapUniversViewProps {
   filters: FilterState;
@@ -101,7 +102,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     // Process current period cafe evolution (object structure)
     const cafeEvolution = summary.evolution.cafe?.[currentYear];
     if (cafeEvolution) {
-      Object.entries(cafeEvolution).forEach(([month, data]: [string, any]) => {
+      Object.entries(cafeEvolution).forEach(([month, {cafe: data}]: [string, any]) => {
         if (month !== 'total' && data?.ca_total_ht) {
           if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
           monthlyData[month].cafe = data.ca_total_ht;
@@ -112,21 +113,21 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     // Process current period equipement evolution (array structure)
     const equipementEvolution = summary.evolution.equipement?.[currentYear];
     if (equipementEvolution) {
-      Object.entries(equipementEvolution).forEach(([month, dataArray]: [string, any]) => {
-        if (month !== 'total' && Array.isArray(dataArray)) {
+      Object.entries(equipementEvolution).forEach(([month, dataArray]: [string, EvolutionMonthData]) => {
+        if (month !== 'total') {
           if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].equipement = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
+          monthlyData[month].equipement = Object.values(dataArray).reduce((sum: number, item: EvolutionData) => sum + (item.ca_total_ht || 0), 0);
         }
       });
     }
-
     // Process current period service evolution (array structure)
     const serviceEvolution = summary.evolution.service?.[currentYear];
     if (serviceEvolution) {
-      Object.entries(serviceEvolution).forEach(([month, dataArray]: [string, any]) => {
-        if (month !== 'total' && Array.isArray(dataArray)) {
+      Object.entries(serviceEvolution).forEach(([month, dataArray]: [string, EvolutionMonthData]) => {
+        console.log(Object.values(dataArray))
+        if (month !== 'total') {
           if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].service = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
+          monthlyData[month].service = Object.values(dataArray).reduce((sum: number, item: EvolutionData) => sum + (item.ca_total_ht || 0), 0);
         }
       });
     }
@@ -138,7 +139,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       // Comparison cafe evolution
       const compareCafeEvolution = compareSummary.evolution.cafe?.[compareYear];
       if (compareCafeEvolution) {
-        Object.entries(compareCafeEvolution).forEach(([month, data]: [string, any]) => {
+        Object.entries(compareCafeEvolution).forEach(([month, data]: [string, EvolutionMonthData]) => {
           if (month !== 'total' && data?.ca_total_ht) {
             if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
             monthlyData[month].cafePrev = data.ca_total_ht;

@@ -2,13 +2,12 @@ import { useModalState } from "@/hooks/useModalState";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { useMemo } from 'react';
 import { Settings, ShoppingCart, Shield, Droplets } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from "recharts";
 import type { FilterState } from "@/types";
 import { useOverview, useEvolution, useDistribution } from "@/hooks/useDashboardData";
 import { calculateTrend } from "@/lib/trend-utils";
 import { DataTableModal } from "../modals/DataTableModal";
 import { ProductCategorySection } from "../sections/ProductCategorySection";
-import { EvolutionMonthData } from "@/services/dashboard-api";
 import { transformEquipementDistribution, transformEquipementEvolution } from "@/lib/dashboard-utils";
 import { useState, useEffect } from "react";
 
@@ -17,12 +16,15 @@ interface EquipementViewProps {
   isComparing: boolean;
 }
 
-const COLORS = [
-  "hsl(200, 55%, 40%)",
-  "hsl(200, 45%, 55%)",
-  "hsl(200, 35%, 65%)",
-  "hsl(200, 25%, 75%)",
-];
+const FADE_OPACITY = 0.25;
+
+const COLORS = {
+  location: 'hsl(200, 55%, 40%)',
+  vente: 'hsl(200, 45%, 55%)',
+  assistance: 'hsl(200, 35%, 65%)',
+  entretien: 'hsl(200, 25%, 75%)',
+};
+
 
 // Location machines par marque
 const locationMarqueData = [
@@ -268,11 +270,45 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
                 ]}
               />
               <Legend verticalAlign="bottom" height={36} />
-              <Bar dataKey="location" name="Location" fill="hsl(200, 55%, 40%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="vente" name="Vente" fill="hsl(200, 45%, 55%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="assistance" name="Assistance" fill="hsl(200, 35%, 65%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="entretien" name="Entretien" fill="hsl(200, 25%, 75%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Bar dataKey="location" name="Location" fill={COLORS.location} radius={[4, 4, 0, 0]}>
+                {evolutionData.map((d, i) => (
+                  <Cell
+                    key={`location-${i}`}
+                    fill={COLORS.location}
+                    fillOpacity={!d.location || d.actif === 0 ? FADE_OPACITY : 1}
+                  />
+                ))}
+              </Bar>
+
+              <Bar dataKey="vente" name="Vente" fill={COLORS.vente} radius={[4, 4, 0, 0]}>
+                {evolutionData.map((d, i) => (
+                  <Cell
+                    key={`vente-${i}`}
+                    fill={COLORS.vente}
+                    fillOpacity={!d.vente || d.actif === 0 ? FADE_OPACITY : 1}
+                  />
+                ))}
+              </Bar>
+
+              <Bar dataKey="assistance" name="Assistance" fill={COLORS.assistance} radius={[4, 4, 0, 0]}>
+                {evolutionData.map((d, i) => (
+                  <Cell
+                    key={`assistance-${i}`}
+                    fill={COLORS.assistance}
+                    fillOpacity={!d.assistance || d.actif === 0 ? FADE_OPACITY : 1}
+                  />
+                ))}
+              </Bar>
+
+              <Bar dataKey="entretien" name="Entretien" fill={COLORS.entretien} radius={[4, 4, 0, 0]}>
+                {evolutionData.map((d, i) => (
+                  <Cell
+                    key={`entretien-${i}`}
+                    fill={COLORS.entretien}
+                    fillOpacity={!d.entretien || d.actif === 0 ? FADE_OPACITY : 1}
+                  />
+                ))}
+              </Bar>            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
