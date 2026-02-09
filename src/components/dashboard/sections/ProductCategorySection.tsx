@@ -6,7 +6,8 @@ import { DataTableModal } from "../modals/DataTableModal";
 interface TableColumn {
   key: string;
   label: string;
-  format?: (value: any) => string;
+  format?: (value: any, row?: any) => React.ReactNode;
+  width?: string;
 }
 
 interface ProductCategorySectionProps {
@@ -72,7 +73,7 @@ export function ProductCategorySection({
           <TableHeader>
             <TableRow>
               {columns.map((col) => (
-                <TableHead key={col.key} className="text-xs">
+                <TableHead key={col.key} className={cn("text-xs text-center", col.width)}>
                   {col.label}
                 </TableHead>
               ))}
@@ -82,8 +83,22 @@ export function ProductCategorySection({
             {displayData.map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {columns.map((col) => (
-                  <TableCell key={col.key} className="text-sm py-2">
-                    {col.format ? col.format(row[col.key]) : row[col.key]}
+                  <TableCell key={col.key} className={cn("text-sm py-2 text-center", col.width)}>
+                    {(() => {
+                      const val = row[col.key];
+                      if (
+                        val === undefined ||
+                        val === null ||
+                        (typeof val === 'number' && isNaN(val))
+                      ) {
+                        return "-";
+                      }
+                      const formatted = col.format ? col.format(val) : val;
+                      if (typeof formatted === 'string' && (formatted.includes('NaN') || formatted.includes('undefined'))) {
+                        return "-";
+                      }
+                      return formatted;
+                    })()}
                   </TableCell>
                 ))}
               </TableRow>
@@ -96,7 +111,7 @@ export function ProductCategorySection({
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         title={title}
-        columns={columns}
+        columns={columns as any}
         data={data}
         variant={variant}
       />

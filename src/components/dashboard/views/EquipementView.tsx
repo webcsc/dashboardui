@@ -293,10 +293,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Par Marque"
             columns={[
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "unites", label: "Unités" },
-              { key: "part", label: "Part" },
+              { key: "marque", label: "Marque", width: "w-[40%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "unites", label: "Unités", width: "w-[20%]" },
+              { key: "part", label: "Part", width: "w-[20%]" },
             ]}
             data={locationMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -305,10 +305,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Par Référence (Top)"
             columns={[
-              { key: "reference", label: "Référence" },
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "unites", label: "Unités" },
+              { key: "reference", label: "Référence", width: "w-[40%]" },
+              { key: "marque", label: "Marque", width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "unites", label: "Unités", width: "w-[20%]" },
             ]}
             data={locationRefData.filter(item => item.reference.toLowerCase().includes(filters.searchProduct?.toLowerCase() || '') || item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -318,10 +318,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         <ProductCategorySection
           title="Accessoires Location"
           columns={[
-            { key: "typologie", label: "Typologie" },
-            { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-            { key: "unites", label: "Unités" },
-            { key: "part", label: "Part" },
+            { key: "typologie", label: "Typologie", width: "w-[40%]" },
+            { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+            { key: "unites", label: "Unités", width: "w-[20%]" },
+            { key: "part", label: "Part", width: "w-[20%]" },
           ]}
           data={accessoiresLocationData.filter(item => item.typologie.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
           variant="equipement"
@@ -338,10 +338,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Par Marque"
             columns={[
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "contrats", label: "Contrats" },
-              { key: "part", label: "Part" },
+              { key: "marque", label: "Marque", width: "w-[40%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "contrats", label: "Contrats", width: "w-[20%]" },
+              { key: "part", label: "Part", width: "w-[20%]" },
             ]}
             data={assistanceMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -350,10 +350,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Par Référence Machine"
             columns={[
-              { key: "reference", label: "Référence" },
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "contrats", label: "Contrats" },
+              { key: "reference", label: "Référence", width: "w-[40%]" },
+              { key: "marque", label: "Marque", width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "contrats", label: "Contrats", width: "w-[20%]" },
             ]}
             data={assistanceRefData.filter(item => item.reference.toLowerCase().includes(filters.searchProduct?.toLowerCase() || '') || item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -372,10 +372,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Par Typologie"
             columns={[
-              { key: "typologie", label: "Type" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "unites", label: "Unités" },
-              { key: "part", label: "Part" },
+              { key: "typologie", label: "Type", width: "w-[40%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "unites", label: "Unités", width: "w-[20%]" },
+              { key: "part", label: "Part", width: "w-[20%]" },
             ]}
             data={entretienTypologieData.filter(item => item.typologie.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -384,10 +384,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Par Marque"
             columns={[
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "unites", label: "Unités" },
-              { key: "part", label: "Part" },
+              { key: "marque", label: "Marque", width: "w-[40%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "unites", label: "Unités", width: "w-[20%]" },
+              { key: "part", label: "Part", width: "w-[20%]" },
             ]}
             data={entretienMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -406,10 +406,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Machines par Marque"
             columns={[
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "unites", label: "Unités" },
-              { key: "part", label: "Part" },
+              { key: "marque", label: "Marque", width: "w-[40%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "unites", label: "Unités", width: "w-[20%]" },
+              { key: "part", label: "Part", width: "w-[20%]" },
             ]}
             data={venteMarqueData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -418,10 +418,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           <ProductCategorySection
             title="Top Références"
             columns={[
-              { key: "reference", label: "Référence" },
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€` },
+              { key: "reference", label: "Référence", width: "w-[40%]" },
+              { key: "marque", label: "Marque", width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€`, width: "w-[20%]" },
             ]}
             data={venteRefData.filter(item => item.reference.toLowerCase().includes(filters.searchProduct?.toLowerCase() || '') || item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="equipement"
@@ -431,10 +431,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         <ProductCategorySection
           title="Accessoires Vente"
           columns={[
-            { key: "typologie", label: "Typologie" },
-            { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-            { key: "unites", label: "Unités" },
-            { key: "part", label: "Part" },
+            { key: "typologie", label: "Typologie", width: "w-[40%]" },
+            { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+            { key: "unites", label: "Unités", width: "w-[20%]" },
+            { key: "part", label: "Part", width: "w-[20%]" },
           ]}
           data={accessoiresVenteData.filter(item => item.typologie.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
           variant="equipement"

@@ -32,6 +32,9 @@ export function BaseKpiCard({
 }: BaseKpiCardProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    const displayValue = value.includes("NaN") ? "-" : value;
+    const displayPreviousValue = previousValue?.includes("NaN") ? "-" : previousValue;
+
     const isPositive = trend && trend > 0;
     const isNegative = trend && trend < 0;
     const isNeutral = !trend || trend === 0;
@@ -50,7 +53,7 @@ export function BaseKpiCard({
         <>
             <div
                 className={cn(
-                    "kpi-card group transition-all",
+                    "kpi-card group transition-all relative",
                     variantStyles[variant],
                     isClickable && "cursor-pointer hover:shadow-lg hover:border-primary/30"
                 )}
@@ -63,7 +66,7 @@ export function BaseKpiCard({
                 }}
             >
                 <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                    <div className="flex-1 pr-12">
                         <p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
 
                         {showComparison && previousValue ? (
@@ -71,22 +74,22 @@ export function BaseKpiCard({
                                 <div className="flex items-center gap-3">
                                     <div className="flex flex-col">
                                         <span className="text-xs text-muted-foreground">Actuel</span>
-                                        <span className="text-2xl font-bold text-foreground">{value}</span>
+                                        <span className="text-2xl font-bold text-foreground">{displayValue}</span>
                                     </div>
                                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                     <div className="flex flex-col">
                                         <span className="text-xs text-muted-foreground">Précédent</span>
-                                        <span className="text-lg font-semibold text-muted-foreground">{previousValue}</span>
+                                        <span className="text-lg font-semibold text-muted-foreground">{displayPreviousValue}</span>
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-2xl font-bold text-foreground animate-count-up">{value}</p>
+                            <p className="text-2xl font-bold text-foreground animate-count-up">{displayValue}</p>
                         )}
                     </div>
 
                     {icon && (
-                        <div className="p-2 rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
+                        <div className="absolute top-2 right-3 p-2 rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
                             {icon}
                         </div>
                     )}
@@ -102,7 +105,7 @@ export function BaseKpiCard({
                         {isPositive && <TrendingUp className="h-4 w-4" />}
                         {isNegative && <TrendingDown className="h-4 w-4" />}
                         {isNeutral && <Minus className="h-4 w-4" />}
-                        <span>{isPositive ? "+" : ""}{trend.toFixed(2)}%</span>
+                        <span>{isNaN(trend) ? "-" : `${isPositive ? "+" : ""}${trend.toFixed(2)}%`}</span>
                         <span className="text-muted-foreground font-normal ml-1">
                             {showComparison ? "vs période précédente" : "vs mois dernier"}
                         </span>

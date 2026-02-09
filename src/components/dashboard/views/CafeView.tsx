@@ -15,11 +15,13 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import type { FilterState } from '@/types';
 import {
   useOverview,
   useEvolution,
   useDistribution,
+  useProducts,
 } from '@/hooks/useDashboardData';
 import { calculateTrend } from '@/lib/trend-utils';
 import { DataTableModal } from '../modals/DataTableModal';
@@ -32,52 +34,6 @@ interface CafeViewProps {
 }
 
 const COLORS = ['hsl(25, 60%, 35%)', 'hsl(25, 45%, 50%)', 'hsl(25, 35%, 65%)'];
-
-// Café en grains - M2L
-const cafeGrainsM2LData = [
-  { type: 'Angelico', ca: 45000, volume: 1200, part: '18%' },
-  { type: 'Moderato', ca: 38000, volume: 980, part: '15%' },
-  { type: 'Dona', ca: 32000, volume: 850, part: '13%' },
-  { type: 'Intenso', ca: 28000, volume: 720, part: '11%' },
-  { type: 'Perou', ca: 22000, volume: 580, part: '9%' },
-  { type: 'Autres M2L', ca: 18000, volume: 470, part: '7%' },
-];
-
-const cafeGrainsItalienData = [
-  { marque: 'Lavazza', ca: 35000, volume: 920, part: '14%' },
-  { marque: 'Illy', ca: 22000, volume: 580, part: '9%' },
-  { marque: 'Autres Italien', ca: 12000, volume: 300, part: '5%' },
-];
-
-// Café moulu
-const cafeMouluData = [
-  { type: 'M2L Moulu', ca: 28000, volume: 750, part: '45%' },
-  { type: 'Italien Moulu', ca: 18000, volume: 480, part: '29%' },
-  { type: 'Autres Moulu', ca: 16000, volume: 420, part: '26%' },
-];
-
-// Café dosette
-const cafeDosetteData = [
-  { type: 'M2L Dosettes', ca: 42000, volume: 1100, part: '65%' },
-  { type: 'Autres Dosettes', ca: 22000, volume: 580, part: '35%' },
-];
-
-// Thé
-const theData = [
-  { marque: 'Pagès', ca: 28000, volume: 720, part: '35%' },
-  { marque: 'Palmarès', ca: 22000, volume: 560, part: '28%' },
-  { marque: 'Kusmi Tea', ca: 18000, volume: 450, part: '23%' },
-  { marque: 'Autres', ca: 12000, volume: 320, part: '15%' },
-];
-
-// Divers
-const diversData = [
-  { categorie: 'Sucre', ca: 15000, volume: 2800, part: '30%' },
-  { categorie: 'Chocolat', ca: 18000, volume: 850, part: '36%' },
-  { categorie: 'Gobelet', ca: 8000, volume: 12000, part: '16%' },
-  { categorie: 'Agitateur', ca: 4000, volume: 8500, part: '8%' },
-  { categorie: 'Divers', ca: 5000, volume: 1200, part: '10%' },
-];
 
 export function CafeView({ filters, isComparing }: CafeViewProps) {
   const { openModals, openModal, closeModal } = useModalState([
@@ -92,6 +48,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   const { data: overviewResponse } = useOverview('cafe', filters);
   const { data: evolutionResponse } = useEvolution('cafe', filters);
   const { data: distributionResponse } = useDistribution('cafe', filters);
+  const { data: productsResponse } = useProducts('cafe', filters);
 
   const [switchVolume, setSwitchVolume] = useState(false);
   const handleSwitchChange = () => {
@@ -113,10 +70,20 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     },
   );
 
+  const { data: compareProductsResponse } = useProducts(
+    'cafe',
+    comparisonFilters,
+    {
+      enabled: isComparing && !!filters.comparePeriod,
+    },
+  );
+
   const overview = overviewResponse?.data;
   const compareOverview = compareOverviewResponse?.data;
   const evolution = evolutionResponse?.data;
   const distribution = distributionResponse?.distribution;
+  const compareProducts = compareProductsResponse?.products;
+  const products = productsResponse?.products;
 
   // Transform Distribution Data
   const formatData = useMemo(() => {
@@ -132,7 +99,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         volume: item.poids_total,
         part: parseFloat(item.percentage_kg) || 0,
       }))
-      .filter((item) => item.part >= 1)
+      // .filter((item) => item.part >= 1)
       .sort((a, b) => b.part - a.part);
   }, [distribution]);
 
@@ -184,52 +151,132 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   // Filtrage des données locales pour la recherche
   const searchLower = filters.searchProduct?.toLowerCase() || '';
 
-  const filteredCafeGrainsM2L = useMemo(
-    () =>
-      cafeGrainsM2LData.filter((item) =>
-        item.type.toLowerCase().includes(searchLower),
-      ),
-    [searchLower],
-  );
+  const renderProductView = () => {
+    if (!products) return null;
 
-  const filteredCafeGrainsItalien = useMemo(
-    () =>
-      cafeGrainsItalienData.filter((item) =>
-        item.marque.toLowerCase().includes(searchLower),
-      ),
-    [searchLower],
-  );
+    return Object.entries(products).map(([category, productList]) => {
+      // 1. Get current rows
+      const currentRows = Array.isArray(productList)
+        ? productList
+        : Object.values(productList ?? {});
 
-  const filteredCafeMoulu = useMemo(
-    () =>
-      cafeMouluData.filter((item) =>
-        item.type.toLowerCase().includes(searchLower),
-      ),
-    [searchLower],
-  );
+      if (!currentRows.length) return null;
 
-  const filteredCafeDosette = useMemo(
-    () =>
-      cafeDosetteData.filter((item) =>
-        item.type.toLowerCase().includes(searchLower),
-      ),
-    [searchLower],
-  );
+      // 2. Get comparison rows (if any)
+      const compareList = compareProducts?.[category];
+      const compareRows = Array.isArray(compareList)
+        ? compareList
+        : Object.values(compareList ?? {});
 
-  const filteredThe = useMemo(
-    () =>
-      theData.filter((item) => item.marque.toLowerCase().includes(searchLower)),
-    [searchLower],
-  );
+      // 3. Merge data
+      const mergedData = currentRows.map((row: any) => {
+        // Find matching row in previous period
+        // Usually matching by 'type' or 'marque' or 'reference' depending on the category structure
+        // We'll try common keys
+        const matchKey = row.type || row.marque || row.reference || row.categorie;
 
-  const filteredDivers = useMemo(
-    () =>
-      diversData.filter((item) =>
-        item.categorie.toLowerCase().includes(searchLower),
-      ),
-    [searchLower],
-  );
+        const prevRow = compareRows.find((p: any) => {
+          const pKey = p.type || p.marque || p.reference || p.categorie;
+          return pKey === matchKey;
+        });
 
+        const currentCA = row.ca_total_ht || 0;
+        const prevCA = prevRow?.ca_total_ht;
+
+        const currentVol = row.volume_total || 0;
+        const prevVol = prevRow?.volume_total;
+
+        const trendCA = getTrend(currentCA, prevCA);
+        const trendVol = getTrend(currentVol, prevVol);
+
+        return {
+          ...row,
+          prev_ca: prevCA,
+          trend_ca: trendCA,
+          prev_vol: prevVol,
+          trend_vol: trendVol,
+        };
+      });
+
+      // 4. Define columns based on isComparing
+      const columns: any[] = [
+        { key: "type", label: "Type", width: "w-[30%]" },
+      ];
+
+      // Detect visual key
+      const firstRow = currentRows[0];
+      let mainKey = "type";
+      let mainLabel = "Type";
+      if (firstRow.marque) { mainKey = "marque"; mainLabel = "Marque"; }
+      else if (firstRow.categorie) { mainKey = "categorie"; mainLabel = "Catégorie"; }
+      else if (firstRow.reference) { mainKey = "reference"; mainLabel = "Référence"; }
+
+      columns[0] = { key: mainKey, label: mainLabel, width: isComparing ? "w-[22%]" : "w-[40%]" };
+
+
+      columns.push({
+        key: "ca_total_ht",
+        label: "CA",
+        format: (v: number) => `${(v / 1000).toFixed(0)}k€`,
+        width: isComparing ? "w-[13%]" : "w-[30%]"
+      });
+
+      if (isComparing) {
+        columns.push({
+          key: "prev_ca",
+          label: "Préc. (CA)",
+          format: (v: number) => v !== undefined ? `${(v / 1000).toFixed(0)}k€` : "-",
+          width: "w-[13%]"
+        });
+
+        columns.push({
+          key: "trend_ca",
+          label: "Évol. (CA)",
+          format: (v: number) => {
+            if (v === undefined || isNaN(v)) return "-";
+            const colorClass = v > 0 ? "text-emerald-600" : v < 0 ? "text-red-600" : "text-muted-foreground";
+            return <span className={colorClass}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
+          },
+          width: "w-[13%]"
+        });
+      }
+
+      columns.push({ key: "volume_total", label: "Volume", format: (v: number) => `${Math.round(v)}kg`, width: isComparing ? "w-[13%]" : "w-[30%]" });
+
+      if (isComparing) {
+        columns.push({
+          key: "prev_vol",
+          label: "Préc. (Vol)",
+          format: (v: number) => v !== undefined ? `${Math.round(v)}kg` : "-",
+          width: "w-[13%]"
+        });
+
+        columns.push({
+          key: "trend_vol",
+          label: "Évol. (Vol)",
+          format: (v: number) => {
+            if (v === undefined || isNaN(v)) return "-";
+            const colorClass = v > 0 ? "text-emerald-600" : v < 0 ? "text-red-600" : "text-muted-foreground";
+            return <span className={colorClass}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
+          },
+          width: "w-[13%]"
+        });
+      }
+
+      return (
+        <ProductCategorySection
+          key={category}
+          title={category}
+          icon={<Bean className="h-5 w-5 text-universe-cafe" />}
+          columns={columns}
+          data={mergedData}
+          variant="cafe"
+        />
+      );
+    });
+  };
+
+  // renderProductView()
   return (
     <div className="space-y-6 animate-fade-in">
       {/* KPIs globaux */}
@@ -397,7 +444,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
       </div>
 
       {/* Sections détaillées par catégorie */}
-      <ProductCategorySection
+      {/* <ProductCategorySection
         title="Café en Grains – M2L"
         icon={<Bean className="h-5 w-5 text-universe-cafe" />}
         columns={[
@@ -497,7 +544,8 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         ]}
         data={filteredDivers}
         variant="cafe"
-      />
+      /> */}
+      {renderProductView()}
 
       {/* Modals */}
       <DataTableModal

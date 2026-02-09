@@ -1,4 +1,5 @@
 import type { FilterState } from '@/types';
+import { Products } from '@/types/products';
 import { format } from 'date-fns';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -62,6 +63,7 @@ export interface EvolutionResponse {
         }
     }
 }
+
 
 /**
  * Interface pour un item de distribution
@@ -395,6 +397,62 @@ export async function fetchSummary(
 
     if (!response.ok) {
         throw new Error(`Summary API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Récupère les données d'évolution pour un univers donné.
+ *
+ * Effectue un appel GET vers l'API en utilisant l'année extraite du filtre de période.
+ *
+ * @param universe - Identifiant de l'univers ('cafe', 'equipement', 'service').
+ * @param filters - Filtres actifs (utilisés pour déterminer l'année de l'historique).
+ * @returns Une promesse contenant les données d'évolution mensuelle.
+ *
+ * @throws {Error} Si la requête échoue (status non-2xx).
+ *
+ * @example
+ * ```typescript
+ * const evolution = await fetchProducts('cafe', filters);
+ * console.log(evolution.data.total);
+ * ```
+ */
+export async function fetchProducts(
+    universe: string,
+    filters: FilterState // Utilisé pour extraire l'année si non fournie explicitement
+): Promise<Products> {
+    const queryParams = new URLSearchParams();
+
+    // Format dates YYYY-MM-DD
+    if (filters.period) {
+        queryParams.append('date_start', format(filters.period.start, 'yyyy-MM-dd'));
+        queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
+    }
+
+    if (filters.searchProduct) {
+        queryParams.append('search_product', filters.searchProduct);
+    }
+
+
+    if (filters.regions && filters.regions.length > 0) {
+        queryParams.append('regions', filters.regions.join(','));
+    }
+
+    if (filters.clientTypes && filters.clientTypes.length > 0) {
+        queryParams.append('client_types', filters.clientTypes.join(','));
+    }
+
+    const url = `${API_BASE_URL}/cscdataapi/products/${universe}?${queryParams.toString()}`;
+
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Products API Error: ${response.status} ${response.statusText}`);
     }
 
     return response.json();

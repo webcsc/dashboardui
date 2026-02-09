@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import type { FilterState } from '@/types';
-import { fetchOverview, fetchEvolution, fetchDistribution, fetchSummary } from '@/services/dashboard-api';
+import { fetchOverview, fetchEvolution, fetchDistribution, fetchSummary, fetchProducts } from '@/services/dashboard-api';
 import { CACHE_TIME } from '@/config/constants';
 
 /**
@@ -125,6 +125,35 @@ export function useSummary(filters: FilterState, options?: { enabled?: boolean }
     return useQuery({
         queryKey: ['summary', filters],
         queryFn: () => fetchSummary(filters),
+        staleTime: CACHE_TIME.STALE_TIME,
+        gcTime: CACHE_TIME.CACHE_TIME,
+        retry: 3,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+        placeholderData: (previousData) => previousData,
+        enabled: options?.enabled !== undefined ? options.enabled : true,
+    });
+}
+
+
+/**
+ * Hook pour charger les données d'évolution.
+ * 
+ * Utilise React Query pour gérer la mise en cache et le cycle de vie de la requête.
+ * 
+ * @param view - Identifiant de la vue ('cafe', 'equipement', 'service', etc.).
+ * @param filters - Filtres appliqués (l'année est extraite de `filters.period`).
+ * @param options - Options supplémentaires pour React Query (ex: enabled).
+ * @returns L'objet Query de React Query contenant `data`, `isLoading`, `error`, etc.
+ * 
+ * @example
+ * ```tsx
+ * const { data, isLoading } = useProducts('cafe', filters);
+ * ```
+ */
+export function useProducts(view: string, filters: FilterState, options?: { enabled?: boolean }) {
+    return useQuery({
+        queryKey: ['products', view, filters],
+        queryFn: () => fetchProducts(view, filters),
         staleTime: CACHE_TIME.STALE_TIME,
         gcTime: CACHE_TIME.CACHE_TIME,
         retry: 3,

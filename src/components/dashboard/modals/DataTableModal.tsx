@@ -142,7 +142,7 @@ export function DataTableModal({
         <div className="space-y-3 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             {/* Search input */}
-            <div className="relative flex-1">
+            {/* <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher dans le tableau..."
@@ -150,7 +150,7 @@ export function DataTableModal({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 h-9"
               />
-            </div>
+            </div> */}
 
             {/* Toggle filters button */}
             <Button
@@ -194,7 +194,7 @@ export function DataTableModal({
               {columns.map((col) => {
                 const options = filterOptions[col.key];
                 if (!options || options.length <= 1) return null;
-                
+
                 return (
                   <div key={col.key} className="min-w-[140px]">
                     <Select

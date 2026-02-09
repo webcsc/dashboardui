@@ -41,12 +41,12 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
       {/* Toggle Switch pour les groupes */}
       <div className="flex items-center bg-muted rounded-lg p-1 w-fit">
         <button
-          onClick={() => handleGroupChange("kpi")}
+          disabled
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
+            "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all opacity-50 cursor-not-allowed",
             activeGroup === "kpi"
               ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground"
           )}
         >
           <BarChart3 className="h-4 w-4" />

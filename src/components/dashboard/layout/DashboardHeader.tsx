@@ -11,16 +11,13 @@ export function DashboardHeader() {
           </div>
           <div>
             <h1 className="text-xl font-display font-bold text-foreground">
-              CSC Dashboard
+              Dashboard Chacun son café
             </h1>
-            <p className="text-sm text-muted-foreground">
-              La Coopérative du Café
-            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative">
+          {/* <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full text-[10px] text-white flex items-center justify-center">
               3
@@ -29,7 +26,7 @@ export function DashboardHeader() {
           <Button variant="ghost" size="icon">
             <Settings className="h-5 w-5" />
             <span className="sr-only">Paramètres</span>
-          </Button>
+          </Button> */}
         </div>
       </div>
     </header>

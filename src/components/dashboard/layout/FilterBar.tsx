@@ -169,51 +169,45 @@ export function FilterBar({
         </Select>
 
         {/* Custom Date Range */}
-        {selectedPreset === 'custom' && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="justify-start text-left font-normal"
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(filters.period.start, 'dd MMM', { locale: fr })} -{' '}
-                {format(filters.period.end, 'dd MMM yyyy', { locale: fr })}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={{
-                  from: filters.period.start,
-                  to: filters.period.end,
-                }}
-                onSelect={(range) => {
-                  if (range?.from && range?.to) {
-                    const newPeriod = { start: range.from, end: range.to };
-                      // When using a custom period, do not forcibly overwrite an existing
-                      // comparePeriod so the user can edit the compare range separately.
-                      const shouldSetDefaultCompare = isComparing && !filters.comparePeriod;
-                      onFiltersChange({
-                        ...filters,
-                        period: newPeriod,
-                        comparePeriod: shouldSetDefaultCompare
-                          ? getComparePeriodDates(newPeriod)
-                          : filters.comparePeriod,
-                      });
-                  }
-                }}
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        )}
-
         {/* Date Display */}
-        <div className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded-md">
-          {format(filters.period.start, 'dd MMM yyyy', { locale: fr })} –{' '}
-          {format(filters.period.end, 'dd MMM yyyy', { locale: fr })}
-        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="justify-start text-left font-normal disabled:opacity-80"
+              disabled={selectedPreset !== 'custom'}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {format(filters.period.start, 'dd MMM', { locale: fr })} -{' '}
+              {format(filters.period.end, 'dd MMM yyyy', { locale: fr })}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={{
+                from: filters.period.start,
+                to: filters.period.end,
+              }}
+              onSelect={(range) => {
+                if (range?.from && range?.to) {
+                  const newPeriod = { start: range.from, end: range.to };
+                  // When using a custom period, do not forcibly overwrite an existing
+                  // comparePeriod so the user can edit the compare range separately.
+                  const shouldSetDefaultCompare = isComparing && !filters.comparePeriod;
+                  onFiltersChange({
+                    ...filters,
+                    period: newPeriod,
+                    comparePeriod: shouldSetDefaultCompare
+                      ? getComparePeriodDates(newPeriod)
+                      : filters.comparePeriod,
+                  });
+                }
+              }}
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
 
         {/* Comparison Toggle */}
         {showComparison && (
@@ -228,20 +222,14 @@ export function FilterBar({
           </Button>
         )}
 
-        {isComparing && filters.comparePeriod && (
-          <div className="text-sm px-2 py-1 bg-primary/10 text-primary rounded-md border border-primary/20">
-            vs {format(filters.comparePeriod.start, 'dd MMM yyyy', { locale: fr })} –{' '}
-            {format(filters.comparePeriod.end, 'dd MMM yyyy', { locale: fr })}
-          </div>
-        )}
-
         {/* Allow editing compare period when comparing and using custom period */}
-        {isComparing && selectedPreset === 'custom' && (
+        {isComparing && filters.comparePeriod && (
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="justify-start text-left font-normal"
+                className="justify-start text-left font-normal disabled:opacity-80"
+                disabled={selectedPreset !== 'custom'}
               >
                 <CalendarIcon className="h-4 w-4" />
                 {filters.comparePeriod

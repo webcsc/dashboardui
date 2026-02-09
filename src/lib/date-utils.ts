@@ -35,14 +35,19 @@ export function getPeriodDates(preset: string): DateRange {
                 end: endOfMonth(subMonths(now, 1)),
             };
 
-        case 'current-quarter':
-            return { start: startOfQuarter(now), end: endOfQuarter(now) };
-
-        case 'last-quarter':
+        case "current-quarter": {
             return {
-                start: startOfQuarter(subQuarters(now, 1)),
-                end: endOfQuarter(subQuarters(now, 1)),
+                start: startOfMonth(subMonths(now, 2)),
+                end: endOfMonth(now)
             };
+        }
+
+        case "last-quarter": {
+            return {
+                start: startOfMonth(subMonths(now, 5)),
+                end: endOfMonth(subMonths(now, 3))
+            };
+        }
 
         case 'current-year':
             return { start: startOfYear(now), end: endOfYear(now) };

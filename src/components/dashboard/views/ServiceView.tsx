@@ -138,7 +138,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const isMoreAYear = evolution && Object.entries(evolution)?.length > 2;
 
   const evolutionData = evolution ? Object.entries(evolution)
-    .flatMap(([year, yearData]) => 
+    .flatMap(([year, yearData]) =>
       Object.entries(yearData)
         .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
         .map(([month, monthItems]) => {
@@ -164,7 +164,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           return aggregated;
         })
     ) : [];
-    evolutionData?.pop()
+  evolutionData?.pop()
   const caTotal = overview?.ca_total_ht_global || 0;
 
   return (
@@ -192,7 +192,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend(overview?.ca_installation_total_ht, compareOverview?.ca_installation_total_ht)}
             icon={<Settings className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            // onClick={() => openModal('installation')}
+          // onClick={() => openModal('installation')}
           />
           <BaseKpiCard
             label="Réparation"
@@ -201,7 +201,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend(overview?.ca_reparation_total_ht, compareOverview?.ca_reparation_total_ht)}
             icon={<Wrench className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            // onClick={() => openModal('reparation')}
+          // onClick={() => openModal('reparation')}
           />
           <BaseKpiCard
             label="Changement Cartouche"
@@ -210,7 +210,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend(overview?.ca_cartouche_total_ht, compareOverview?.ca_cartouche_total_ht)}
             icon={<RefreshCw className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            // onClick={() => openModal('cartouche')}
+          // onClick={() => openModal('cartouche')}
           />
           <BaseKpiCard
             label="Prêt / Échange"
@@ -219,7 +219,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             trend={getTrend((overview?.ca_pret_total_ht || 0) + (overview?.ca_echange_total_ht || 0), (compareOverview?.ca_pret_total_ht || 0) + (compareOverview?.ca_echange_total_ht || 0))}
             icon={<ArrowRightLeft className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
-            // onClick={() => openModal('pretEchange')}
+          // onClick={() => openModal('pretEchange')}
           />
         </div>
       </div>
@@ -330,10 +330,10 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           <ProductCategorySection
             title="Sous Assistance"
             columns={[
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "interventions", label: "Interventions" },
-              { key: "part", label: "Part" },
+              { key: "marque", label: "Marque", width: "w-[40%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "interventions", label: "Interventions", width: "w-[20%]" },
+              { key: "part", label: "Part", width: "w-[20%]" },
             ]}
             data={reparationSousAssistanceData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="service"
@@ -342,10 +342,10 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           <ProductCategorySection
             title="Hors Assistance"
             columns={[
-              { key: "marque", label: "Marque" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "interventions", label: "Interventions" },
-              { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€` },
+              { key: "marque", label: "Marque", width: "w-[40%]" },
+              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "interventions", label: "Interventions", width: "w-[20%]" },
+              { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€`, width: "w-[20%]" },
             ]}
             data={reparationHorsAssistanceData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
             variant="service"
@@ -359,10 +359,10 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         title="Changement Cartouche"
         icon={<RefreshCw className="h-5 w-5 text-universe-service" />}
         columns={[
-          { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-          { key: "interventions", label: "Interventions" },
-          { key: "part", label: "Part" },
+          { key: "marque", label: "Marque", width: "w-[40%]" },
+          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+          { key: "interventions", label: "Interventions", width: "w-[20%]" },
+          { key: "part", label: "Part", width: "w-[20%]" },
         ]}
         data={cartoucheData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
         variant="service"
@@ -373,10 +373,10 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         title="Prêt de Machine"
         icon={<Package className="h-5 w-5 text-universe-service" />}
         columns={[
-          { key: "type", label: "Type" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-          { key: "prets", label: "Prêts" },
-          { key: "duréeMoy", label: "Durée moy." },
+          { key: "type", label: "Type", width: "w-[40%]" },
+          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+          { key: "prets", label: "Prêts", width: "w-[20%]" },
+          { key: "duréeMoy", label: "Durée moy.", width: "w-[20%]" },
         ]}
         data={pretMachineData.filter(item => item.type.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
         variant="service"
@@ -387,10 +387,10 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         title="Échange Standard"
         icon={<ArrowRightLeft className="h-5 w-5 text-universe-service" />}
         columns={[
-          { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-          { key: "echanges", label: "Échanges" },
-          { key: "part", label: "Part" },
+          { key: "marque", label: "Marque", width: "w-[40%]" },
+          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+          { key: "echanges", label: "Échanges", width: "w-[20%]" },
+          { key: "part", label: "Part", width: "w-[20%]" },
         ]}
         data={echangeStandardData.filter(item => item.marque.toLowerCase().includes(filters.searchProduct?.toLowerCase() || ''))}
         variant="service"
