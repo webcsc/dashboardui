@@ -46,10 +46,10 @@ export function useOverview(view: string, filters: FilterState, options?: { enab
  * const { data, isLoading } = useEvolution('cafe', filters);
  * ```
  */
-export function useEvolution(view: string, filters: FilterState, options?: { enabled?: boolean }) {
+export function useEvolution<T>(view: string, filters: FilterState, options?: { enabled?: boolean }) {
     return useQuery({
         queryKey: ['evolution', view, filters],
-        queryFn: () => fetchEvolution(view, filters),
+        queryFn: () => fetchEvolution<T>(view, filters),
         staleTime: CACHE_TIME.STALE_TIME,
         gcTime: CACHE_TIME.CACHE_TIME,
         retry: 3,

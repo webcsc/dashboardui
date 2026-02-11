@@ -2,29 +2,28 @@ import { useModalState } from "@/hooks/useModalState";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { useMemo } from 'react';
 import { Settings, ShoppingCart, Shield, Droplets } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, DefaultTooltipContent, Cell } from "recharts";
 import type { FilterState } from "@/types";
 import { useOverview, useEvolution, useDistribution } from "@/hooks/useDashboardData";
-import { calculateTrend } from "@/lib/trend-utils";
+import { useViewFilters, useComparisonHelpers } from '@/hooks';
 import { DataTableModal } from "../modals/DataTableModal";
 import { ProductCategorySection } from "../sections/ProductCategorySection";
 import { transformEquipementDistribution, transformEquipementEvolution } from "@/lib/dashboard-utils";
 import { useState, useEffect } from "react";
+import { formatPrice } from "@/lib";
+import { EquipementMonthData } from "@/services/dashboard-api";
 
 interface EquipementViewProps {
   filters: FilterState;
   isComparing: boolean;
 }
 
-const FADE_OPACITY = 0.25;
-
-const COLORS = {
-  location: 'hsl(200, 55%, 40%)',
-  vente: 'hsl(200, 45%, 55%)',
-  assistance: 'hsl(200, 35%, 65%)',
-  entretien: 'hsl(200, 25%, 75%)',
-};
-
+const COLORS = [
+  "hsl(200, 55%, 40%)",
+  "hsl(200, 45%, 55%)",
+  "hsl(200, 35%, 65%)",
+  "hsl(200, 25%, 75%)",
+];
 
 // Location machines par marque
 const locationMarqueData = [
@@ -119,31 +118,20 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
     }
   }, [isAnyOpen, filters.clientId]);
 
-  // Modal specific filters
-  const modalFilters = useMemo(() => ({
-    ...filters,
-    clientId: modalClientId
-  }), [filters, modalClientId]);
+  // Use custom hooks for filters and comparison helpers
+  const { modalFilters, comparisonFilters } = useViewFilters(filters, modalClientId);
+  const { getTrend, getPreviousCurrencyValue } = useComparisonHelpers(isComparing);
 
   // Fetch API Data (Main View)
   const { data: overviewResponse } = useOverview('equipement', filters);
-  const { data: evolutionResponse } = useEvolution('equipement', filters);
-  const { data: distributionResponse } = useDistribution('equipement', filters);
+  const { data: evolutionResponse } = useEvolution<EquipementMonthData>('equipement', filters);
 
   // Fetch API Data (Modals)
   const { data: modalOverviewResponse } = useOverview('equipement', modalFilters, { enabled: isAnyOpen });
-  const { data: modalEvolutionResponse } = useEvolution('equipement', modalFilters, { enabled: isAnyOpen });
-  const { data: modalDistributionResponse } = useDistribution('equipement', modalFilters, { enabled: isAnyOpen });
+  const { data: modalEvolutionResponse } = useEvolution<EquipementMonthData>('equipement', modalFilters, { enabled: isAnyOpen });
 
   const modalOverview = modalOverviewResponse?.data;
   const modalEvolution = modalEvolutionResponse?.data;
-  const modalDistribution = modalDistributionResponse?.distribution;
-
-  // Comparison Data
-  const comparisonFilters = useMemo(() => ({
-    ...filters,
-    period: filters.comparePeriod || filters.period
-  }), [filters]);
 
   const { data: compareOverviewResponse } = useOverview('equipement', comparisonFilters, {
     enabled: isComparing && !!filters.comparePeriod
@@ -152,27 +140,23 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
   const overview = overviewResponse?.data;
   const compareOverview = compareOverviewResponse?.data;
   const evolution = evolutionResponse?.data;
-  const distribution = distributionResponse?.distribution;
-
-  // Transform Distribution Data
-  const repartitionData = useMemo(() => transformEquipementDistribution(distribution), [distribution]);
-  const modalRepartitionData = useMemo(() => transformEquipementDistribution(modalDistribution), [modalDistribution]);
-
-  // Helper to calculate trend
-  const getTrend = (current?: number, previous?: number) => {
-    if (!isComparing || previous === undefined || previous === 0) return undefined;
-    return calculateTrend(current || 0, previous || 0).value;
-  };
-
-  const getPreviousValue = (previous?: number) => {
-    if (!isComparing || previous === undefined) return "-";
-    return `${((previous || 0) / 1000).toFixed(1)}k€`;
-  };
 
   // Transform Evolution Data for Chart
   const currentYear = filters.period.start.getFullYear().toString();
-  const evolutionData = useMemo(() => transformEquipementEvolution(evolution, currentYear, 12), [evolution, currentYear]);
-  const modalEvolutionData = useMemo(() => transformEquipementEvolution(modalEvolution, currentYear, 12), [modalEvolution, currentYear]);
+  const isCurrentYear =
+    filters.period.start.getFullYear() === new Date().getFullYear() &&
+    filters.period.start.getMonth() === 0 &&
+    filters.period.end.getMonth() === 11;
+
+  const evolutionData = useMemo(() => transformEquipementEvolution(evolution, currentYear, 12, isCurrentYear, filters.period), [evolution, currentYear, isCurrentYear, filters.period]);
+  const modalEvolutionData = useMemo(() => transformEquipementEvolution(modalEvolution, currentYear, 12, isCurrentYear, filters.period), [modalEvolution, currentYear, isCurrentYear, filters.period]);
+
+
+  const renderBarCells = (color: string) => {
+    return evolutionData.map((entry, index) => (
+      <Cell key={`cell-${index}`} fill={color} fillOpacity={entry.actif === 0 ? 0.3 : 1} />
+    ));
+  };
 
 
   // If we have API data, we might want to prioritize it, but for the stacked bar chart which requires breakdown, 
@@ -193,48 +177,48 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <BaseKpiCard
             label="CA Total Équipement"
-            value={`${((overview?.ca_total_ht_global || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_total_ht_global)}
-            trend={getTrend(overview?.ca_total_ht_global, compareOverview?.ca_total_ht_global)}
+            value={formatPrice((overview?.ca_total_ht_global || 0))}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_total_ht_global)}
+            trend={getTrend(overview?.ca_total_ht_global, Number(compareOverview?.ca_total_ht_global))}
             icon={<Settings className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
             onClick={() => openModal('caTotal')}
           />
           <BaseKpiCard
             label="Location Machines"
-            value={`${((overview?.ca_location_total_ht || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_location_total_ht)}
-            trend={getTrend(overview?.ca_location_total_ht, compareOverview?.ca_location_total_ht)}
+            value={formatPrice((overview?.ca_location_total_ht || 0))}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_location_total_ht)}
+            trend={getTrend(overview?.ca_location_total_ht, Number(compareOverview?.ca_location_total_ht))}
             icon={<Settings className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            onClick={() => openModal('location')}
+          // onClick={() => openModal('location')}
           />
           <BaseKpiCard
             label="Vente Machines"
-            value={`${((overview?.ca_vente_total_ht || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_vente_total_ht)}
-            trend={getTrend(overview?.ca_vente_total_ht, compareOverview?.ca_vente_total_ht)}
+            value={formatPrice((overview?.ca_vente_total_ht || 0))}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_vente_total_ht)}
+            trend={getTrend(overview?.ca_vente_total_ht, Number(compareOverview?.ca_vente_total_ht))}
             icon={<ShoppingCart className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            onClick={() => openModal('vente')}
+          // onClick={() => openModal('vente')}
           />
           <BaseKpiCard
             label="Assistance Premium"
-            value={`${((overview?.ca_assistance_total_ht || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_assistance_total_ht)}
-            trend={getTrend(overview?.ca_assistance_total_ht, compareOverview?.ca_assistance_total_ht)}
+            value={formatPrice((overview?.ca_assistance_total_ht || 0))}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_assistance_total_ht)}
+            trend={getTrend(overview?.ca_assistance_total_ht, Number(compareOverview?.ca_assistance_total_ht))}
             icon={<Shield className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            onClick={() => openModal('assistance')}
+          // onClick={() => openModal('assistance')}
           />
           <BaseKpiCard
             label="Produits Entretien"
-            value={`${((overview?.ca_entretien_total_ht || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_entretien_total_ht)}
-            trend={getTrend(overview?.ca_entretien_total_ht, compareOverview?.ca_entretien_total_ht)}
+            value={formatPrice((overview?.ca_entretien_total_ht || 0))}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_entretien_total_ht)}
+            trend={getTrend(overview?.ca_entretien_total_ht, Number(compareOverview?.ca_entretien_total_ht))}
             icon={<Droplets className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            onClick={() => openModal('entretien')}
+          // onClick={() => openModal('entretien')}
           />
         </div>
       </div>
@@ -264,51 +248,29 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
                   border: "1px solid hsl(35, 20%, 88%)",
                   borderRadius: "0.75rem",
                 }}
+                content={({ payload, ...props }) => {
+                  if (!payload || payload.length === 0) return null;
+                  return <DefaultTooltipContent payload={payload} {...props} />;
+                }}
                 formatter={(value: number, name: string) => [
-                  `${((value || 0) / 1000).toFixed(0)}k€`,
+                  formatPrice(value || 0),
                   name === 'total' ? 'CA Total' : name
                 ]}
               />
               <Legend verticalAlign="bottom" height={36} />
-              <Bar dataKey="location" name="Location" fill={COLORS.location} radius={[4, 4, 0, 0]}>
-                {evolutionData.map((d, i) => (
-                  <Cell
-                    key={`location-${i}`}
-                    fill={COLORS.location}
-                    fillOpacity={!d.location || d.actif === 0 ? FADE_OPACITY : 1}
-                  />
-                ))}
+              <Bar dataKey="location" name="Location" fill="hsl(200, 55%, 40%)" radius={[4, 4, 0, 0]}>
+                {renderBarCells("hsl(200, 55%, 40%)")}
               </Bar>
-
-              <Bar dataKey="vente" name="Vente" fill={COLORS.vente} radius={[4, 4, 0, 0]}>
-                {evolutionData.map((d, i) => (
-                  <Cell
-                    key={`vente-${i}`}
-                    fill={COLORS.vente}
-                    fillOpacity={!d.vente || d.actif === 0 ? FADE_OPACITY : 1}
-                  />
-                ))}
+              <Bar dataKey="vente" name="Vente" fill="hsl(200, 45%, 55%)" radius={[4, 4, 0, 0]}>
+                {renderBarCells("hsl(200, 45%, 55%)")}
               </Bar>
-
-              <Bar dataKey="assistance" name="Assistance" fill={COLORS.assistance} radius={[4, 4, 0, 0]}>
-                {evolutionData.map((d, i) => (
-                  <Cell
-                    key={`assistance-${i}`}
-                    fill={COLORS.assistance}
-                    fillOpacity={!d.assistance || d.actif === 0 ? FADE_OPACITY : 1}
-                  />
-                ))}
+              <Bar dataKey="assistance" name="Assistance" fill="hsl(200, 35%, 65%)" radius={[4, 4, 0, 0]}>
+                {renderBarCells("hsl(200, 35%, 65%)")}
               </Bar>
-
-              <Bar dataKey="entretien" name="Entretien" fill={COLORS.entretien} radius={[4, 4, 0, 0]}>
-                {evolutionData.map((d, i) => (
-                  <Cell
-                    key={`entretien-${i}`}
-                    fill={COLORS.entretien}
-                    fillOpacity={!d.entretien || d.actif === 0 ? FADE_OPACITY : 1}
-                  />
-                ))}
-              </Bar>            </BarChart>
+              <Bar dataKey="entretien" name="Entretien" fill="hsl(200, 25%, 75%)" radius={[4, 4, 0, 0]}>
+                {renderBarCells("hsl(200, 25%, 75%)")}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -324,7 +286,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             title="Par Marque"
             columns={[
               { key: "marque", label: "Marque", width: "w-[40%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
@@ -337,7 +299,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             columns={[
               { key: "reference", label: "Référence", width: "w-[40%]" },
               { key: "marque", label: "Marque", width: "w-[20%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
               { key: "unites", label: "Unités", width: "w-[20%]" },
             ]}
             data={locationRefData}
@@ -349,7 +311,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           title="Accessoires Location"
           columns={[
             { key: "typologie", label: "Typologie", width: "w-[40%]" },
-            { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+            { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
             { key: "unites", label: "Unités", width: "w-[20%]" },
             { key: "part", label: "Part", width: "w-[20%]" },
           ]}
@@ -369,7 +331,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             title="Par Marque"
             columns={[
               { key: "marque", label: "Marque", width: "w-[40%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
               { key: "contrats", label: "Contrats", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
@@ -382,7 +344,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             columns={[
               { key: "reference", label: "Référence", width: "w-[40%]" },
               { key: "marque", label: "Marque", width: "w-[20%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
               { key: "contrats", label: "Contrats", width: "w-[20%]" },
             ]}
             data={assistanceRefData}
@@ -403,7 +365,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             title="Par Typologie"
             columns={[
               { key: "typologie", label: "Type", width: "w-[40%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
@@ -415,7 +377,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             title="Par Marque"
             columns={[
               { key: "marque", label: "Marque", width: "w-[40%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
@@ -437,7 +399,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             title="Machines par Marque"
             columns={[
               { key: "marque", label: "Marque", width: "w-[40%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
               { key: "unites", label: "Unités", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
@@ -450,8 +412,8 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             columns={[
               { key: "reference", label: "Référence", width: "w-[40%]" },
               { key: "marque", label: "Marque", width: "w-[20%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
-              { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
+              { key: "prixMoyen", label: "Prix moy.", format: (v) => formatPrice(v), width: "w-[20%]" },
             ]}
             data={venteRefData}
             variant="equipement"
@@ -462,7 +424,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
           title="Accessoires Vente"
           columns={[
             { key: "typologie", label: "Typologie", width: "w-[40%]" },
-            { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+            { key: "ca", label: "CA", format: (v) => formatPrice(v), width: "w-[20%]" },
             { key: "unites", label: "Unités", width: "w-[20%]" },
             { key: "part", label: "Part", width: "w-[20%]" },
           ]}
@@ -480,7 +442,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "categorie", label: "Catégorie" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(1)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v) },
           { key: "part", label: "Part" },
         ]}
         data={[
@@ -515,7 +477,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v) },
           { key: "unites", label: "Unités" },
         ]}
         data={locationMarqueData}
@@ -529,7 +491,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v) },
           { key: "unites", label: "Unités" },
         ]}
         data={venteMarqueData}
@@ -543,7 +505,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v) },
           { key: "contrats", label: "Contrats" },
         ]}
         data={assistanceMarqueData}
@@ -557,7 +519,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "typologie", label: "Type" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v) },
           { key: "part", label: "Part" },
         ]}
         data={entretienTypologieData}
@@ -571,10 +533,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "mois", label: "Mois" },
-          { key: "location", label: "Location", format: (v) => `${(v || 0).toLocaleString()}€` },
-          { key: "vente", label: "Vente", format: (v) => `${(v || 0).toLocaleString()}€` },
-          { key: "assistance", label: "Assistance", format: (v) => `${(v || 0).toLocaleString()}€` },
-          { key: "entretien", label: "Entretien", format: (v) => `${(v || 0).toLocaleString()}€` },
+          { key: "location", label: "Location", format: (v) => formatPrice(v || 0) },
+          { key: "vente", label: "Vente", format: (v) => formatPrice(v || 0) },
+          { key: "assistance", label: "Assistance", format: (v) => formatPrice(v || 0) },
+          { key: "entretien", label: "Entretien", format: (v) => formatPrice(v || 0) },
         ]}
         data={modalEvolutionData}
         variant="equipement"

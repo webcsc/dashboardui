@@ -3,13 +3,14 @@ import { Coffee, Settings, Wrench, Euro } from "lucide-react";
 import type { FilterState } from "@/types";
 import { useMemo } from "react";
 import { useSummary } from "@/hooks/useDashboardData";
-import { calculateTrend } from "@/lib/trend-utils";
-// Trigger HMR update
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useViewFilters, useComparisonHelpers } from '@/hooks';
+import { subMonths } from 'date-fns';
+import { MONTH_ORDER, FRENCH_MONTHS } from "@/lib/dashboard-constants";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from "recharts";
 import { useModalState } from "@/hooks/useModalState";
 import { DataTableModal } from "../modals/DataTableModal";
 import { useState, useEffect } from "react";
-import { EvolutionData, EvolutionMonthData } from '@/services/dashboard-api';
+import { formatPrice, formatWeight } from "@/lib";
 
 interface RecapUniversViewProps {
   filters: FilterState;
@@ -31,10 +32,13 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     }
   }, [openModals.evolution, filters.clientId]);
 
-  const modalFilters = useMemo(() => ({
-    ...filters,
-    clientId: modalClientId
-  }), [filters, modalClientId]);
+  // Use custom hooks for filters and comparison helpers
+  const { modalFilters: baseModalFilters, comparisonFilters } = useViewFilters(filters, modalClientId);
+  const { getTrend, getPreviousCurrencyValue } = useComparisonHelpers(isComparing);
+
+  // RecapUniversView uses specific modal logic (only 'evolution' modal uses client filter)
+  // so we adapt the hook output
+  const modalFilters = baseModalFilters;
 
   // Fetch summary data for modal (specific client filter)
   const { data: modalSummaryResponse } = useSummary(modalFilters, {
@@ -43,18 +47,45 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
 
   const modalSummary = modalSummaryResponse;
 
-  // Comparison data for previous period
-  const comparisonFilters = useMemo(() => ({
-    ...filters,
-    period: filters.comparePeriod || filters.period
-  }), [filters]);
-
   const { data: compareSummaryResponse } = useSummary(comparisonFilters, {
     enabled: isComparing && !!filters.comparePeriod
   });
 
+  // Fetch 12-month rolling window data for the chart
+  const trendFilters = useMemo(() => {
+    if (!filters.period) return filters;
+    const end = filters.period.end;
+    const start = subMonths(end, 11);
+    // Align start to beginning of month to be safe
+    start.setDate(1);
+
+    return {
+      ...filters,
+      period: { start, end }
+    };
+  }, [filters]);
+
+  const trendComparisonFilters = useMemo(() => {
+    if (!comparisonFilters?.period) return null;
+    const end = comparisonFilters.period.end;
+    const start = subMonths(end, 11);
+    start.setDate(1);
+
+    return {
+      ...comparisonFilters,
+      period: { start, end }
+    };
+  }, [comparisonFilters]);
+
+  const { data: trendSummaryResponse, isLoading: isLoadingTrend } = useSummary(trendFilters);
+  const { data: trendCompareSummaryResponse } = useSummary(trendComparisonFilters, {
+    enabled: isComparing && !!trendComparisonFilters
+  });
+
   const summary = summaryResponse;
+  const trendSummary = trendSummaryResponse;
   const compareSummary = compareSummaryResponse;
+  const trendCompareSummary = trendCompareSummaryResponse;
 
   // Calculate totals and trends
   const caTotal = (summary?.overview?.cafe?.ca_total_ht_global || 0) +
@@ -66,17 +97,6 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     (compareSummary.overview?.equipement?.ca_total_ht_global || 0) +
     (compareSummary.overview?.service?.ca_total_ht_global || 0) : 0;
 
-  // Helper functions
-  const getTrend = (current?: number, previous?: number) => {
-    if (!isComparing || previous === undefined || previous === 0) return undefined;
-    return calculateTrend(current || 0, previous || 0).value;
-  };
-
-  const getPreviousValue = (previous?: number) => {
-    if (!isComparing || previous === undefined) return "-";
-    return `${((previous || 0) / 1000).toFixed(1)}k€`;
-  };
-
   // Calculate market share
   const getMarketShare = (universeCA: number) => {
     if (!caTotal || caTotal === 0) return 0;
@@ -84,157 +104,257 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
   };
 
   // Transform evolution data for chart
-  const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const frenchMonths: Record<string, string> = {
-    "January": "Jan", "February": "Fév", "March": "Mar", "April": "Avr",
-    "May": "Mai", "June": "Juin", "July": "Juil", "August": "Août",
-    "September": "Sep", "October": "Oct", "November": "Nov", "December": "Déc"
-  };
 
   const currentYear = filters.period.start.getFullYear().toString();
 
 
   const evolutionChartData = useMemo(() => {
-    if (!summary?.evolution) return [];
+    if (!trendSummary?.evolution) return [];
 
-    const monthlyData: Record<string, { cafe: number; equipement: number; service: number; cafePrev?: number; equipementPrev?: number; servicePrev?: number; }> = {};
+    const start = trendFilters.period.start;
+    const end = trendFilters.period.end;
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
 
-    // Process current period cafe evolution (object structure)
-    const cafeEvolution = summary.evolution.cafe?.[currentYear];
-    if (cafeEvolution) {
-      Object.entries(cafeEvolution).forEach(([month, {cafe: data}]: [string, any]) => {
-        if (month !== 'total' && data?.ca_total_ht) {
-          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].cafe = data.ca_total_ht;
-        }
+    // Generate month/year keys for the selected period
+    const periodKeys: { year: string; month: string; label: string; date: Date }[] = [];
+    const current = new Date(start);
+    // Align to start of month
+    current.setDate(1);
+
+    while (current <= end) {
+      const year = current.getFullYear().toString();
+      const month = MONTH_ORDER[current.getMonth()];
+      const label = current.getFullYear() !== startYear && current.getMonth() === 0
+        ? `${FRENCH_MONTHS[month]} ${year.substring(2)}`
+        : FRENCH_MONTHS[month] || month.substring(0, 3);
+
+      periodKeys.push({
+        year,
+        month,
+        label,
+        date: new Date(current)
       });
+      // Next month
+      current.setMonth(current.getMonth() + 1);
     }
 
-    // Process current period equipement evolution (array structure)
-    const equipementEvolution = summary.evolution.equipement?.[currentYear];
-    if (equipementEvolution) {
-      Object.entries(equipementEvolution).forEach(([month, dataArray]: [string, EvolutionMonthData]) => {
-        if (month !== 'total') {
-          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].equipement = Object.values(dataArray).reduce((sum: number, item: EvolutionData) => sum + (item.ca_total_ht || 0), 0);
-        }
-      });
-    }
-    // Process current period service evolution (array structure)
-    const serviceEvolution = summary.evolution.service?.[currentYear];
-    if (serviceEvolution) {
-      Object.entries(serviceEvolution).forEach(([month, dataArray]: [string, EvolutionMonthData]) => {
-        console.log(Object.values(dataArray))
-        if (month !== 'total') {
-          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].service = Object.values(dataArray).reduce((sum: number, item: EvolutionData) => sum + (item.ca_total_ht || 0), 0);
-        }
-      });
-    }
+    // Generate keys for the comparison period (if applicable)
+    // We want to map index i of periodKeys to index i of the comparison period
+    const compareKeys: { year: string; month: string }[] = [];
+    if (isComparing && trendComparisonFilters?.period) {
+      const compareCurrent = new Date(trendComparisonFilters.period.start);
+      compareCurrent.setDate(1);
 
-    // Process comparison period data if available
-    if (isComparing && compareSummary?.evolution) {
-      const compareYear = comparisonFilters.period?.start?.getFullYear()?.toString() || currentYear;
-
-      // Comparison cafe evolution
-      const compareCafeEvolution = compareSummary.evolution.cafe?.[compareYear];
-      if (compareCafeEvolution) {
-        Object.entries(compareCafeEvolution).forEach(([month, data]: [string, EvolutionMonthData]) => {
-          if (month !== 'total' && data?.ca_total_ht) {
-            if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-            monthlyData[month].cafePrev = data.ca_total_ht;
-          }
+      // We generate exactly as many keys as the main period
+      for (let i = 0; i < periodKeys.length; i++) {
+        compareKeys.push({
+          year: compareCurrent.getFullYear().toString(),
+          month: MONTH_ORDER[compareCurrent.getMonth()]
         });
-      }
-
-      // Comparison equipement evolution
-      const compareEquipementEvolution = compareSummary.evolution.equipement?.[compareYear];
-      if (compareEquipementEvolution) {
-        Object.entries(compareEquipementEvolution).forEach(([month, dataArray]: [string, any]) => {
-          if (month !== 'total' && Array.isArray(dataArray)) {
-            if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-            monthlyData[month].equipementPrev = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
-          }
-        });
-      }
-
-      // Comparison service evolution
-      const compareServiceEvolution = compareSummary.evolution.service?.[compareYear];
-      if (compareServiceEvolution) {
-        Object.entries(compareServiceEvolution).forEach(([month, dataArray]: [string, any]) => {
-          if (month !== 'total' && Array.isArray(dataArray)) {
-            if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-            monthlyData[month].servicePrev = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
-          }
-        });
+        compareCurrent.setMonth(compareCurrent.getMonth() + 1);
       }
     }
 
-    // Convert to array and sort by month - return separate universe values with comparison
-    return Object.entries(monthlyData)
-      .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
-      .map(([month, data]) => ({
-        mois: frenchMonths[month] || month.substring(0, 3),
-        cafe: data.cafe,
-        equipement: data.equipement,
-        service: data.service,
+
+    const cafeData = trendSummary.evolution.cafe;
+    const equipementData = trendSummary.evolution.equipement;
+    const serviceData = trendSummary.evolution.service;
+
+    // Previous year data for comparison (if enabled)
+    const cafePrevData = compareSummary?.evolution?.cafe;
+    const equipementPrevData = compareSummary?.evolution?.equipement;
+    const servicePrevData = compareSummary?.evolution?.service;
+
+    return periodKeys.map(({ year, month, label, date }, index) => {
+      let cafe = 0;
+      let equipement = 0;
+      let service = 0;
+      let cafePrev = 0;
+      let equipementPrev = 0;
+      let servicePrev = 0;
+
+      // Cafe
+      const cafeYearData = cafeData?.[year];
+      if (cafeYearData?.[month]) {
+        // Handle both nested and direct structure
+        const mData = cafeYearData[month];
+        cafe = (mData?.cafe?.ca_total_ht) || (mData?.ca_total_ht) || 0;
+      }
+
+      // Equipement
+      const equipYearData = equipementData?.[year];
+      if (equipYearData?.[month]) {
+        const mData = equipYearData[month];
+        if (mData && typeof mData === 'object') {
+          equipement = Number(Object.values(mData).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht)) || 0, 0));
+        }
+      }
+
+      // Service
+      const serviceYearData = serviceData?.[year];
+      if (serviceYearData?.[month]) {
+        const mData = serviceYearData[month];
+        if (mData && typeof mData === 'object') {
+          service = Number(Object.values(mData).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0));
+        }
+      }
+
+      // Comparison Data
+      if (isComparing && compareKeys[index]) {
+        const { year: prevYear, month: prevMonth } = compareKeys[index];
+
+        if (cafePrevData?.[prevYear]?.[prevMonth]) {
+          const mData = cafePrevData[prevYear][prevMonth];
+          cafePrev = (mData?.cafe?.ca_total_ht) || (mData?.ca_total_ht) || 0;
+        }
+
+        if (equipementPrevData?.[prevYear]?.[prevMonth]) {
+          const mData = equipementPrevData[prevYear][prevMonth];
+          equipementPrev = Number(Object.values(mData as Record<string, any>).reduce<number>((acc, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0));
+        }
+
+        if (servicePrevData?.[prevYear]?.[prevMonth]) {
+          const mData = servicePrevData[prevYear][prevMonth];
+          servicePrev = Number(Object.values(mData as Record<string, any>).reduce<number>((acc, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0));
+        }
+      }
+
+      // Determine 'actif' state
+      const checkDate = new Date(date); checkDate.setHours(12, 0, 0, 0);
+      const userStart = new Date(filters.period.start); userStart.setHours(0, 0, 0, 0);
+      const userEnd = new Date(filters.period.end); userEnd.setHours(23, 59, 59, 999);
+      const today = new Date(); today.setHours(23, 59, 59, 999);
+
+      const isWithinSelection = checkDate >= userStart && checkDate <= userEnd;
+      const isPastOrCurrent = checkDate <= today;
+      const isActive = isWithinSelection && isPastOrCurrent;
+
+      return {
+        mois: label,
+        originalMonth: month,
+        year,
+        cafe,
+        equipement,
+        service,
+        actif: isActive ? 1 : 0,
         ...(isComparing && {
-          cafePrev: data.cafePrev || 0,
-          equipementPrev: data.equipementPrev || 0,
-          servicePrev: data.servicePrev || 0
+          cafePrev,
+          equipementPrev,
+          servicePrev
         })
-      }));
-  }, [summary, compareSummary, currentYear, isComparing, comparisonFilters]);
+      };
+    });
+  }, [trendSummary, trendCompareSummary, filters.period, trendFilters, trendComparisonFilters, isComparing]);
+
+  // Calculate inactive ranges for ReferenceArea
+  const inactiveRanges = useMemo(() => {
+    if (!evolutionChartData.length) return [];
+
+    const ranges: { start: string; end: string }[] = [];
+    let currentStart: string | null = null;
+
+    evolutionChartData.forEach((point, index) => {
+      if (point.actif === 0) {
+        if (!currentStart) {
+          currentStart = point.mois;
+        }
+        // If it's the last point, close the range
+        if (index === evolutionChartData.length - 1 && currentStart) {
+          ranges.push({ start: currentStart, end: point.mois });
+        }
+      } else {
+        if (currentStart) {
+          // Close the previous range. 
+          // We need the *previous* point as end, but since we are at an active point, 
+          // the inactive range ended at index-1.
+          const prevPoint = evolutionChartData[index - 1];
+          ranges.push({ start: currentStart, end: prevPoint.mois });
+          currentStart = null;
+        }
+      }
+    });
+
+    return ranges;
+  }, [evolutionChartData]);
 
   // Modal Evolution Data transformation (uses modalSummary)
   const modalEvolutionChartData = useMemo(() => {
     if (!modalSummary?.evolution) return [];
 
     const monthlyData: Record<string, { cafe: number; equipement: number; service: number; }> = {};
+    MONTH_ORDER.forEach(month => {
+      monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
+    });
 
     // Process current period cafe evolution (object structure)
     const cafeEvolution = modalSummary.evolution.cafe?.[currentYear];
     if (cafeEvolution) {
       Object.entries(cafeEvolution).forEach(([month, data]: [string, any]) => {
-        if (month !== 'total' && data?.ca_total_ht) {
-          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].cafe = data.ca_total_ht;
+        if (month !== 'total' && data?.cafe?.ca_total_ht) {
+          const monthIndex = MONTH_ORDER.indexOf(month);
+          if (monthIndex > -1) {
+            monthlyData[month].cafe = data.cafe.ca_total_ht;
+          }
         }
       });
     }
 
-    // Process current period equipement evolution (array structure)
+    // Process current period equipement evolution (object structure)
     const equipementEvolution = modalSummary.evolution.equipement?.[currentYear];
     if (equipementEvolution) {
-      Object.entries(equipementEvolution).forEach(([month, dataArray]: [string, any]) => {
-        if (month !== 'total' && Array.isArray(dataArray)) {
-          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].equipement = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
+      Object.entries(equipementEvolution).forEach(([month, dataObject]: [string, any]) => {
+        if (month !== 'total' && dataObject) {
+          const monthTotal = Object.values(dataObject).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0);
+          const monthIndex = MONTH_ORDER.indexOf(month);
+          if (monthIndex > -1) {
+            monthlyData[month].equipement = Number(monthTotal);
+          }
         }
       });
     }
 
-    // Process current period service evolution (array structure)
+    // Process current period service evolution (object structure)
     const serviceEvolution = modalSummary.evolution.service?.[currentYear];
     if (serviceEvolution) {
-      Object.entries(serviceEvolution).forEach(([month, dataArray]: [string, any]) => {
-        if (month !== 'total' && Array.isArray(dataArray)) {
-          if (!monthlyData[month]) monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
-          monthlyData[month].service = dataArray.reduce((sum: number, item: any) => sum + (item.ca_total_ht || 0), 0);
+      Object.entries(serviceEvolution).forEach(([month, dataObject]: [string, any]) => {
+        if (month !== 'total' && dataObject) {
+          const monthTotal = Object.values(dataObject).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0);
+          const monthIndex = MONTH_ORDER.indexOf(month);
+          if (monthIndex > -1) {
+            monthlyData[month].service = Number(monthTotal);
+          }
         }
       });
     }
 
     return Object.entries(monthlyData)
-      .sort(([monthA], [monthB]) => monthOrder.indexOf(monthA) - monthOrder.indexOf(monthB))
+      .sort(([monthA], [monthB]) => MONTH_ORDER.indexOf(monthA) - MONTH_ORDER.indexOf(monthB))
       .map(([month, data]) => ({
-        mois: frenchMonths[month] || month.substring(0, 3),
+        mois: FRENCH_MONTHS[month] || month.substring(0, 3),
         cafe: data.cafe,
         equipement: data.equipement,
         service: data.service,
       }));
-  }, [modalSummary, currentYear, frenchMonths, monthOrder]);
+  }, [modalSummary, currentYear]);
 
+
+  // State for chart series visibility
+  const [visibleSeries, setVisibleSeries] = useState({
+    cafe: true,
+    equipement: true,
+    service: true
+  });
+
+  const handleLegendClick = (e: any) => {
+    const { dataKey } = e;
+    if (dataKey && dataKey in visibleSeries) {
+      setVisibleSeries(prev => ({
+        ...prev,
+        [dataKey]: !prev[dataKey as keyof typeof visibleSeries]
+      }));
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -248,32 +368,32 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <BaseKpiCard
           label="CA Total Univers"
-          value={`${((caTotal || 0) / 1000).toFixed(1)}k€`}
-          previousValue={getPreviousValue(compareCaTotal)}
+          value={formatPrice(caTotal)}
+          previousValue={getPreviousCurrencyValue(compareCaTotal)}
           trend={getTrend(caTotal, compareCaTotal)}
           icon={<Euro className="h-5 w-5 text-primary" />}
           showComparison={isComparing}
         />
         <BaseKpiCard
           label="CA Univers Café "
-          value={`${((summary?.overview?.cafe?.ca_total_ht_global || 0) / 1000).toFixed(1)}k€`}
-          previousValue={getPreviousValue(compareSummary?.overview?.cafe?.ca_total_ht_global)}
+          value={formatPrice(summary?.overview?.cafe?.ca_total_ht_global || 0)}
+          previousValue={getPreviousCurrencyValue(compareSummary?.overview?.cafe?.ca_total_ht_global)}
           trend={getTrend(summary?.overview?.cafe?.ca_total_ht_global, compareSummary?.overview?.cafe?.ca_total_ht_global)}
           icon={<Coffee className="h-5 w-5 text-universe-cafe" />}
           showComparison={isComparing}
         />
         <BaseKpiCard
           label="CA Équipement"
-          value={`${((summary?.overview?.equipement?.ca_total_ht_global || 0) / 1000).toFixed(1)}k€`}
-          previousValue={getPreviousValue(compareSummary?.overview?.equipement?.ca_total_ht_global)}
+          value={formatPrice(summary?.overview?.equipement?.ca_total_ht_global || 0)}
+          previousValue={getPreviousCurrencyValue(compareSummary?.overview?.equipement?.ca_total_ht_global)}
           trend={getTrend(summary?.overview?.equipement?.ca_total_ht_global, compareSummary?.overview?.equipement?.ca_total_ht_global)}
           icon={<Settings className="h-5 w-5 text-universe-equipement" />}
           showComparison={isComparing}
         />
         <BaseKpiCard
           label="CA Service"
-          value={`${((summary?.overview?.service?.ca_total_ht_global || 0) / 1000).toFixed(1)}k€`}
-          previousValue={getPreviousValue(compareSummary?.overview?.service?.ca_total_ht_global)}
+          value={formatPrice(summary?.overview?.service?.ca_total_ht_global || 0)}
+          previousValue={getPreviousCurrencyValue(compareSummary?.overview?.service?.ca_total_ht_global)}
           trend={getTrend(summary?.overview?.service?.ca_total_ht_global, compareSummary?.overview?.service?.ca_total_ht_global)}
           icon={<Wrench className="h-5 w-5 text-universe-service" />}
           showComparison={isComparing}
@@ -293,15 +413,15 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">CA Mensuel</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{`${((summary?.overview?.cafe?.ca_total_ht_global || 0) / 1000).toFixed(1)}k€`}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousValue(compareSummary?.overview?.cafe?.ca_total_ht_global)}</span>}
+                <span className="font-semibold">{formatPrice(summary?.overview?.cafe?.ca_total_ht_global || 0)}</span>
+                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousCurrencyValue(compareSummary?.overview?.cafe?.ca_total_ht_global)}</span>}
               </div>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Volume</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{`${Math.round(summary?.overview?.cafe?.volume_total_global || 0)} kg`}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">vs {Math.round(compareSummary?.overview?.cafe?.volume_total_global || 0)} kg</span>}
+                <span className="font-semibold">{formatWeight(summary?.overview?.cafe?.volume_total_global || 0)}</span>
+                {isComparing && <span className="text-xs text-muted-foreground">{formatWeight(compareSummary?.overview?.cafe?.volume_total_global || 0)}</span>}
               </div>
             </div>
             <div className="flex justify-between">
@@ -322,14 +442,14 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">CA Mensuel</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{`${((summary?.overview?.equipement?.ca_total_ht_global || 0) / 1000).toFixed(1)}k€`}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousValue(compareSummary?.overview?.equipement?.ca_total_ht_global)}</span>}
+                <span className="font-semibold">{formatPrice(summary?.overview?.equipement?.ca_total_ht_global || 0)}</span>
+                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousCurrencyValue(compareSummary?.overview?.equipement?.ca_total_ht_global)}</span>}
               </div>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Location</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{`${((summary?.overview?.equipement?.ca_location_total_ht || 0) / 1000).toFixed(1)}k€`}</span>
+                <span className="font-semibold">{formatPrice(summary?.overview?.equipement?.ca_location_total_ht || 0)}</span>
               </div>
             </div>
             <div className="flex justify-between">
@@ -350,14 +470,14 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">CA Mensuel</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{`${((summary?.overview?.service?.ca_total_ht_global || 0) / 1000).toFixed(1)}k€`}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousValue(compareSummary?.overview?.service?.ca_total_ht_global)}</span>}
+                <span className="font-semibold">{formatPrice(summary?.overview?.service?.ca_total_ht_global || 0)}</span>
+                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousCurrencyValue(compareSummary?.overview?.service?.ca_total_ht_global)}</span>}
               </div>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Cartouches</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{`${((summary?.overview?.service?.ca_cartouche_total_ht || 0) / 1000).toFixed(1)}k€`}</span>
+                <span className="font-semibold">{formatPrice(summary?.overview?.service?.ca_cartouche_total_ht || 0)}</span>
               </div>
             </div>
             <div className="flex justify-between">
@@ -371,7 +491,14 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       {/* Chart - Evolution with 3 universes */}
       <div
         className="chart-container cursor-pointer hover:shadow-lg transition-all"
-        onClick={() => openModal('evolution')}
+        onClick={(e) => {
+          // Prevent modal opening when clicking legend
+          if ((e.target as Element).closest('.recharts-legend-wrapper')) {
+            e.stopPropagation();
+            return;
+          }
+          openModal('evolution')
+        }}
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Évolution du CA par univers</h3>
@@ -379,7 +506,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             Voir tableau
           </span>
         </div>
-        <ResponsiveContainer width="100%" height={500}>
+        <ResponsiveContainer width="100%" height={400}>
           <AreaChart data={evolutionChartData}>
             <defs>
               <linearGradient id="colorCafe" x1="0" y1="0" x2="0" y2="1">
@@ -401,6 +528,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
               stroke="hsl(25, 15%, 45%)"
               fontSize={12}
               tickFormatter={(value) => `${((value || 0) / 1000).toFixed(0)}k`}
+              tickCount={8}
             />
             <Tooltip
               contentStyle={{
@@ -408,9 +536,19 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
                 border: "1px solid hsl(35, 20%, 88%)",
                 borderRadius: "0.75rem",
               }}
-              formatter={(value: number) => `${((value || 0) / 1000).toFixed(0)}k€`}
+              formatter={(value: number) => formatPrice(value)}
             />
-            <Legend verticalAlign="bottom" height={36} />
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+              onClick={handleLegendClick}
+              cursor="pointer"
+              formatter={(value, entry: any) => {
+                const { dataKey } = entry;
+                const isHidden = dataKey && !visibleSeries[dataKey as keyof typeof visibleSeries];
+                return <span style={{ opacity: isHidden ? 0.5 : 1 }}>{value}</span>;
+              }}
+            />
             <Area
               type="monotone"
               dataKey="cafe"
@@ -420,6 +558,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
               fillOpacity={1}
               fill="url(#colorCafe)"
               activeDot={{ r: 6 }}
+              hide={!visibleSeries.cafe}
             />
             <Area
               type="monotone"
@@ -430,6 +569,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
               fillOpacity={1}
               fill="url(#colorEquipement)"
               activeDot={{ r: 6 }}
+              hide={!visibleSeries.equipement}
             />
             <Area
               type="monotone"
@@ -440,6 +580,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
               fillOpacity={1}
               fill="url(#colorService)"
               activeDot={{ r: 6 }}
+              hide={!visibleSeries.service}
             />
             {/* Comparison period lines - represented as unfilled dashed Areas for visual clarity */}
             {isComparing && (
@@ -454,6 +595,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
                   fill="none"
                   dot={{ fill: "hsl(25, 70%, 50%)", r: 3, strokeDasharray: "none" }}
                   activeDot={{ r: 5 }}
+                  hide={!visibleSeries.cafe}
                 />
                 <Area
                   type="monotone"
@@ -465,6 +607,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
                   fill="none"
                   dot={{ fill: "hsl(200, 55%, 40%)", r: 3, strokeDasharray: "none" }}
                   activeDot={{ r: 5 }}
+                  hide={!visibleSeries.equipement}
                 />
                 <Area
                   type="monotone"
@@ -476,9 +619,21 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
                   fill="none"
                   dot={{ fill: "hsl(140, 50%, 45%)", r: 3, strokeDasharray: "none" }}
                   activeDot={{ r: 5 }}
+                  hide={!visibleSeries.service}
                 />
               </>
             )}
+
+            {/* Inactive Month Highlights */}
+            {inactiveRanges.map((range, index) => (
+              <ReferenceArea
+                key={`inactive-${index}`}
+                x1={range.start}
+                x2={range.end}
+                fill="rgba(149, 137, 137, 0.7)"
+                strokeOpacity={0}
+              />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -494,22 +649,22 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
           {
             key: 'cafe',
             label: 'Café',
-            format: (v) => `${((v || 0) / 1000).toFixed(1)}k€`
+            format: (v) => formatPrice(v)
           },
           {
             key: 'equipement',
             label: 'Équipement',
-            format: (v) => `${((v || 0) / 1000).toFixed(1)}k€`
+            format: (v) => formatPrice(v)
           },
           {
             key: 'service',
             label: 'Service',
-            format: (v) => `${((v || 0) / 1000).toFixed(1)}k€`
+            format: (v) => formatPrice(v)
           },
           {
             key: 'total',
             label: 'Total',
-            format: (v) => `${((v || 0) / 1000).toFixed(1)}k€`
+            format: (v) => formatPrice(v)
           }
         ]}
         clientId={modalClientId}

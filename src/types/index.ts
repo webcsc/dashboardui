@@ -12,11 +12,12 @@ export interface TableColumn {
     /** Label affiché dans l'en-tête */
     label: string;
     /** Fonction de formatage optionnelle pour la valeur */
-    format?: (value: any) => string;
+    format?: (value: number) => string;
     /** Indique si la colonne est filtrable */
     filterable?: boolean;
     /** Type de filtre à appliquer */
     filterType?: "text" | "select";
+    width?: string;
 }
 
 /**

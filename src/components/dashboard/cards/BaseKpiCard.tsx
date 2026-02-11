@@ -1,7 +1,8 @@
 import { useState, ReactNode } from "react";
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DataTableModal, TableColumn } from "../modals/DataTableModal";
+import { DataTableModal } from "../modals/DataTableModal";
+import { TableColumn } from "@/types";
 
 interface BaseKpiCardProps {
     label: string;
@@ -13,7 +14,7 @@ interface BaseKpiCardProps {
     showComparison?: boolean;
     tableTitle?: string;
     tableColumns?: TableColumn[];
-    tableData?: Record<string, any>[];
+    tableData?: Record<string, number | string>[];
     onClick?: () => void; // Support for external modal management
 }
 

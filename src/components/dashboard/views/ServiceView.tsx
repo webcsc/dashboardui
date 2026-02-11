@@ -2,14 +2,16 @@ import { useModalState } from "@/hooks/useModalState";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { useMemo } from 'react';
 import { Wrench, Package, RefreshCw, ArrowRightLeft, Settings } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, DefaultTooltipContent } from "recharts";
 import type { FilterState } from "@/types";
 import { useOverview, useEvolution, useDistribution } from "@/hooks/useDashboardData";
-import { calculateTrend } from "@/lib/trend-utils";
+import { useViewFilters, useComparisonHelpers } from '@/hooks';
 import { DataTableModal } from "../modals/DataTableModal";
 import { ProductCategorySection } from "../sections/ProductCategorySection";
 import { transformServiceDistribution, transformServiceEvolution } from "@/lib/dashboard-utils";
 import { useState, useEffect } from "react";
+import { formatPrice } from "@/lib";
+import { ServiceMonthData } from "@/services/dashboard-api";
 
 interface ServiceViewProps {
   filters: FilterState;
@@ -102,30 +104,23 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
     }
   }, [isAnyOpen, filters.clientId]);
 
-  const modalFilters = useMemo(() => ({
-    ...filters,
-    clientId: modalClientId
-  }), [filters, modalClientId]);
+  // Use custom hooks for filters and comparison helpers
+  const { modalFilters, comparisonFilters } = useViewFilters(filters, modalClientId);
+  const { getTrend, getPreviousValue, getPreviousCurrencyValue } = useComparisonHelpers(isComparing);
 
   // Fetch API Data
   const { data: overviewResponse } = useOverview('service', filters);
-  const { data: evolutionResponse } = useEvolution('service', filters);
+  const { data: evolutionResponse } = useEvolution<ServiceMonthData>('service', filters);
   const { data: distributionResponse } = useDistribution('service', filters);
 
   // Fetch API Data (Modals)
   const { data: modalOverviewResponse } = useOverview('service', modalFilters, { enabled: isAnyOpen });
-  const { data: modalEvolutionResponse } = useEvolution('service', modalFilters, { enabled: isAnyOpen });
+  const { data: modalEvolutionResponse } = useEvolution<ServiceMonthData>('service', modalFilters, { enabled: isAnyOpen });
   const { data: modalDistributionResponse } = useDistribution('service', modalFilters, { enabled: isAnyOpen });
 
   const modalOverview = modalOverviewResponse?.data;
   const modalEvolution = modalEvolutionResponse?.data;
   const modalDistribution = modalDistributionResponse?.distribution;
-
-  // Comparison Data
-  const comparisonFilters = useMemo(() => ({
-    ...filters,
-    period: filters.comparePeriod || filters.period
-  }), [filters]);
 
   const { data: compareOverviewResponse } = useOverview('service', comparisonFilters, {
     enabled: isComparing && !!filters.comparePeriod
@@ -140,23 +135,24 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const repartitionData = useMemo(() => transformServiceDistribution(distribution), [distribution]);
   const modalRepartitionData = useMemo(() => transformServiceDistribution(modalDistribution), [modalDistribution]);
 
-  // Helper to calculate trend
-  const getTrend = (current?: number, previous?: number) => {
-    if (!isComparing || previous === undefined || previous === 0) return undefined;
-    return calculateTrend(current || 0, previous || 0).value;
-  };
-
-  const getPreviousValue = (previous?: number) => {
-    if (!isComparing || previous === undefined) return "-";
-    return `${((previous || 0) / 1000).toFixed(1)}k€`;
-  };
 
   // Transform Evolution Data for Chart
   const currentYear = filters.period.start.getFullYear().toString();
-  const evolutionData = useMemo(() => transformServiceEvolution(evolution, currentYear, 12), [evolution, currentYear]);
-  const modalEvolutionData = useMemo(() => transformServiceEvolution(modalEvolution, currentYear, 12), [modalEvolution, currentYear]);
+  const isCurrentYear =
+    filters.period.start.getFullYear() === new Date().getFullYear() &&
+    filters.period.start.getMonth() === 0 &&
+    filters.period.end.getMonth() === 11;
+
+  const evolutionData = useMemo(() => transformServiceEvolution(evolution, currentYear, 12, isCurrentYear, filters.period), [evolution, currentYear, isCurrentYear, filters.period]);
+  const modalEvolutionData = useMemo(() => transformServiceEvolution(modalEvolution, currentYear, 12, isCurrentYear, filters.period), [modalEvolution, currentYear, isCurrentYear, filters.period]);
   const caTotal = overview?.ca_total_ht_global || 0;
   const modalCaTotal = modalOverview?.ca_total_ht_global || 0;
+
+  const renderBarCells = (data: typeof evolutionData, color: string) => {
+    return data.map((entry, index) => (
+      <Cell key={`cell-${index}`} fill={color} fillOpacity={entry.actif === 0 ? 0.3 : 1} />
+    ));
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -169,45 +165,45 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <BaseKpiCard
             label="CA Total Service"
-            value={`${((caTotal || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_total_ht_global)}
-            trend={getTrend(overview?.ca_total_ht_global, compareOverview?.ca_total_ht_global)}
+            value={formatPrice(caTotal || 0)}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_total_ht_global)}
+            trend={getTrend(overview?.ca_total_ht_global, Number(compareOverview?.ca_total_ht_global))}
             icon={<Wrench className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
             onClick={() => openModal('caTotal')}
           />
           <BaseKpiCard
             label="Installation"
-            value={`${((overview?.ca_installation_total_ht || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_installation_total_ht)}
-            trend={getTrend(overview?.ca_installation_total_ht, compareOverview?.ca_installation_total_ht)}
+            value={formatPrice((overview?.ca_installation_total_ht || 0))}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_installation_total_ht)}
+            trend={getTrend(overview?.ca_installation_total_ht, Number(compareOverview?.ca_installation_total_ht))}
             icon={<Settings className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
           // onClick={() => openModal('installation')}
           />
           <BaseKpiCard
             label="Réparation"
-            value={`${((overview?.ca_reparation_total_ht || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_reparation_total_ht)}
-            trend={getTrend(overview?.ca_reparation_total_ht, compareOverview?.ca_reparation_total_ht)}
+            value={formatPrice(overview?.ca_reparation_total_ht || 0)}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_reparation_total_ht)}
+            trend={getTrend(overview?.ca_reparation_total_ht, Number(compareOverview?.ca_reparation_total_ht))}
             icon={<Wrench className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
           // onClick={() => openModal('reparation')}
           />
           <BaseKpiCard
             label="Changement Cartouche"
-            value={`${((overview?.ca_cartouche_total_ht || 0) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue(compareOverview?.ca_cartouche_total_ht)}
-            trend={getTrend(overview?.ca_cartouche_total_ht, compareOverview?.ca_cartouche_total_ht)}
+            value={formatPrice(overview?.ca_cartouche_total_ht || 0)}
+            previousValue={getPreviousCurrencyValue(compareOverview?.ca_cartouche_total_ht)}
+            trend={getTrend(overview?.ca_cartouche_total_ht, Number(compareOverview?.ca_cartouche_total_ht))}
             icon={<RefreshCw className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
           // onClick={() => openModal('cartouche')}
           />
           <BaseKpiCard
             label="Prêt / Échange"
-            value={`${(((overview?.ca_pret_total_ht || 0) + (overview?.ca_echange_total_ht || 0)) / 1000).toFixed(1)}k€`}
-            previousValue={getPreviousValue((compareOverview?.ca_pret_total_ht || 0) + (compareOverview?.ca_echange_total_ht || 0))}
-            trend={getTrend((overview?.ca_pret_total_ht || 0) + (overview?.ca_echange_total_ht || 0), (compareOverview?.ca_pret_total_ht || 0) + (compareOverview?.ca_echange_total_ht || 0))}
+            value={formatPrice((overview?.ca_pret_total_ht || 0) + (overview?.ca_echange_total_ht || 0))}
+            previousValue={getPreviousCurrencyValue((compareOverview?.ca_pret_total_ht || 0) + (compareOverview?.ca_echange_total_ht || 0))}
+            trend={getTrend((overview?.ca_pret_total_ht || 0) + (overview?.ca_echange_total_ht || 0), Number((compareOverview?.ca_pret_total_ht || 0) + (compareOverview?.ca_echange_total_ht || 0)))}
             icon={<ArrowRightLeft className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
           // onClick={() => openModal('pretEchange')}
@@ -276,8 +272,12 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
                   border: "1px solid hsl(35, 20%, 88%)",
                   borderRadius: "0.75rem",
                 }}
+                content={({ payload, ...props }) => {
+                  if (!payload || payload.length === 0) return null;
+                  return <DefaultTooltipContent payload={payload} {...props} />;
+                }}
                 formatter={(value: number, name: string) => [
-                  `${(value || 0).toLocaleString()}€`,
+                  formatPrice(value || 0),
                   name === 'total' ? 'CA Total' : name
                 ]}
               />
@@ -287,24 +287,16 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
               ) : (
                 <>
                   <Bar dataKey="reparation" name="Échange" fill="hsl(281, 46%, 24%)" radius={[4, 4, 0, 0]} stackId="a">
-                    { evolutionData.map((entry) => (
-                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
-                    ))}
+                    {renderBarCells(evolutionData, "hsl(281, 46%, 24%)")}
                   </Bar>
-                  <Bar dataKey="reparation" name="Réparation" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} stackId="a" >
-                    { evolutionData.map((entry) => (
-                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
-                    ))}
+                  <Bar dataKey="reparation" name="Réparation" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} stackId="a">
+                    {renderBarCells(evolutionData, "hsl(280, 45%, 45%)")}
                   </Bar>
                   <Bar dataKey="installation" name="Installation" fill="hsl(280, 40%, 55%)" radius={[4, 4, 0, 0]} stackId="a">
-                    { evolutionData.map((entry) => (
-                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
-                    ))}
+                    {renderBarCells(evolutionData, "hsl(280, 40%, 55%)")}
                   </Bar>
                   <Bar dataKey="cartouche" name="Cartouche" fill="hsl(280, 35%, 65%)" radius={[4, 4, 0, 0]} stackId="a">
-                    { evolutionData.map((entry) => (
-                      <Cell fillOpacity={entry.actif === 0 ? 0.25 : 1} />
-                    ))}
+                    {renderBarCells(evolutionData, "hsl(280, 35%, 65%)")}
                   </Bar>
                 </>
               )}
@@ -319,9 +311,9 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         icon={<Settings className="h-5 w-5 text-universe-service" />}
         columns={[
           { key: "type", label: "Type" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
           { key: "interventions", label: "Interventions" },
-          { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€` },
+          { key: "prixMoyen", label: "Prix moy.", format: (v) => formatPrice(v || 0) },
         ]}
         data={installationData}
         variant="service"
@@ -338,7 +330,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             title="Sous Assistance"
             columns={[
               { key: "marque", label: "Marque", width: "w-[40%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v || 0), width: "w-[20%]" },
               { key: "interventions", label: "Interventions", width: "w-[20%]" },
               { key: "part", label: "Part", width: "w-[20%]" },
             ]}
@@ -350,9 +342,9 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             title="Hors Assistance"
             columns={[
               { key: "marque", label: "Marque", width: "w-[40%]" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+              { key: "ca", label: "CA", format: (v) => formatPrice(v || 0), width: "w-[20%]" },
               { key: "interventions", label: "Interventions", width: "w-[20%]" },
-              { key: "prixMoyen", label: "Prix moy.", format: (v) => `${v}€`, width: "w-[20%]" },
+              { key: "prixMoyen", label: "Prix moy.", format: (v) => formatPrice(v || 0), width: "w-[20%]" },
             ]}
             data={reparationHorsAssistanceData}
             variant="service"
@@ -367,7 +359,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         icon={<RefreshCw className="h-5 w-5 text-universe-service" />}
         columns={[
           { key: "marque", label: "Marque", width: "w-[40%]" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0), width: "w-[20%]" },
           { key: "interventions", label: "Interventions", width: "w-[20%]" },
           { key: "part", label: "Part", width: "w-[20%]" },
         ]}
@@ -381,7 +373,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         icon={<Package className="h-5 w-5 text-universe-service" />}
         columns={[
           { key: "type", label: "Type", width: "w-[40%]" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0), width: "w-[20%]" },
           { key: "prets", label: "Prêts", width: "w-[20%]" },
           { key: "duréeMoy", label: "Durée moy.", width: "w-[20%]" },
         ]}
@@ -395,7 +387,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         icon={<ArrowRightLeft className="h-5 w-5 text-universe-service" />}
         columns={[
           { key: "marque", label: "Marque", width: "w-[40%]" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`, width: "w-[20%]" },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0), width: "w-[20%]" },
           { key: "echanges", label: "Échanges", width: "w-[20%]" },
           { key: "part", label: "Part", width: "w-[20%]" },
         ]}
@@ -412,7 +404,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "service", label: "Service" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(1)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
           { key: "part", label: "Part" },
         ]}
         data={[
@@ -452,7 +444,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "type", label: "Type" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
           { key: "interventions", label: "Interventions" },
         ]}
         data={installationData}
@@ -466,7 +458,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
           { key: "interventions", label: "Interventions" },
         ]}
         data={reparationSousAssistanceData}
@@ -480,7 +472,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
           { key: "interventions", label: "Interventions" },
         ]}
         data={cartoucheData}
@@ -494,7 +486,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "type", label: "Type" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
           { key: "nombre", label: "Nombre" },
         ]}
         data={[
@@ -511,11 +503,11 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "mois", label: "Mois" },
-          { key: "installation", label: "Installation", format: (v) => `${(v || 0).toLocaleString()}€` },
-          { key: "reparation", label: "Réparation", format: (v) => `${(v || 0).toLocaleString()}€` },
-          { key: "cartouche", label: "Cartouche", format: (v) => `${(v || 0).toLocaleString()}€` },
-          { key: "pret", label: "Prêt", format: (v) => `${(v || 0).toLocaleString()}€` },
-          { key: "echange", label: "Échange", format: (v) => `${(v || 0).toLocaleString()}€` },
+          { key: "installation", label: "Installation", format: (v) => formatPrice(v || 0) },
+          { key: "reparation", label: "Réparation", format: (v) => formatPrice(v || 0) },
+          { key: "cartouche", label: "Cartouche", format: (v) => formatPrice(v || 0) },
+          { key: "pret", label: "Prêt", format: (v) => formatPrice(v || 0) },
+          { key: "echange", label: "Échange", format: (v) => formatPrice(v || 0) },
         ]}
         data={modalEvolutionData.length > 0 ? modalEvolutionData : (modalEvolutionResponse ? [] : evolutionMensuelleData)}
         variant="service"
@@ -528,7 +520,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: "name", label: "Service" },
-          { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
           { key: "value", label: "Part", format: (v) => `${v}%` },
         ]}
         data={modalRepartitionData}

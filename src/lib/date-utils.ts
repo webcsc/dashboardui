@@ -1,6 +1,5 @@
 import {
     startOfMonth, endOfMonth, subMonths,
-    startOfQuarter, endOfQuarter, subQuarters,
     startOfYear, endOfYear, subYears,
 } from 'date-fns';
 import type { DateRange } from '@/types';

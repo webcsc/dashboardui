@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DataTableModal, TableColumn } from "../modals/DataTableModal";
+import { DataTableModal } from "../modals/DataTableModal";
+import { TableColumn } from "@/types";
 
 interface SimpleKpiCardProps {
   label: string;
@@ -13,7 +14,7 @@ interface SimpleKpiCardProps {
   className?: string;
   tableTitle?: string;
   tableColumns?: TableColumn[];
-  tableData?: Record<string, any>[];
+  tableData?: Record<string, number | string>[];
 }
 
 export function SimpleKpiCard({

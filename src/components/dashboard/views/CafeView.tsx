@@ -23,13 +23,21 @@ import {
   useDistribution,
   useProducts,
 } from '@/hooks/useDashboardData';
-import { calculateTrend } from '@/lib/trend-utils';
+import { useViewFilters, useComparisonHelpers } from '@/hooks';
 import { transformDistributionData, transformEvolutionData } from '@/lib/dashboard-utils';
 import { DataTableModal } from '../modals/DataTableModal';
 import { ProductCategorySection } from '../sections/ProductCategorySection';
 import { Switch } from '@/components/ui/switch';
-import { formatWeight } from '@/lib';
-import { EvolutionData, EvolutionMonthData } from '@/services/dashboard-api';
+import { formatPrice, formatWeight } from '@/lib';
+import { CafeMonthData, DistributionItem } from '@/services/dashboard-api';
+import { ProductMap } from '@/types/products';
+
+interface Columns {
+  key: string;
+  label: string;
+  width: string;
+  format?: (value: number) => string | JSX.Element;
+};
 
 interface CafeViewProps {
   filters: FilterState;
@@ -46,7 +54,6 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     'volumeTotal',
     'partB2B',
     'prixMoyen',
-    // ... (rest of modals)
     'format',
     'evolution',
   ]);
@@ -58,15 +65,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     }
   }, [isAnyOpen, filters.clientId]);
 
-  // Modal specific filters
-  const modalFilters = useMemo(() => ({
-    ...filters,
-    clientId: modalClientId
-  }), [filters, modalClientId]);
+  // Use custom hooks for filters and comparison helpers
+  const { modalFilters, comparisonFilters } = useViewFilters(filters, modalClientId);
+  const { getTrend, getPreviousValue, getPreviousCurrencyValue } = useComparisonHelpers(isComparing);
 
   // Fetch data specifically for modals (independent of main view)
   const { data: modalOverviewResponse } = useOverview('cafe', modalFilters, { enabled: isAnyOpen });
-  const { data: modalEvolutionResponse } = useEvolution('cafe', modalFilters, { enabled: isAnyOpen });
+  const { data: modalEvolutionResponse } = useEvolution<CafeMonthData>('cafe', modalFilters, { enabled: isAnyOpen });
   const { data: modalDistributionResponse } = useDistribution('cafe', modalFilters, { enabled: isAnyOpen });
 
   const modalOverview = modalOverviewResponse?.data;
@@ -81,28 +86,24 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     transformEvolutionData(
       modalEvolutionResponse?.data,
       filters.period.start.getFullYear().toString(),
-      12 // Limit to 12 months
+      12, // Limit to 12 months
+      false, // includeFuture
+      filters.period // Pass period for highlighting
     ),
     [modalEvolutionResponse, filters.period]
   );
 
   // Fetch API Data
   const { data: overviewResponse } = useOverview('cafe', filters);
-  const { data: evolutionResponse } = useEvolution('cafe', filters);
+  const { data: evolutionResponse } = useEvolution<CafeMonthData>('cafe', filters);
   const { data: distributionResponse } = useDistribution('cafe', filters);
   const { data: productsResponse } = useProducts('cafe', filters);
 
+  // Volume switch state
   const [switchVolume, setSwitchVolume] = useState(false);
   const handleSwitchChange = () => {
     setSwitchVolume((e) => !e);
   };
-  const comparisonFilters = useMemo(
-    () => ({
-      ...filters,
-      period: filters.comparePeriod || filters.period,
-    }),
-    [filters],
-  );
 
   const { data: compareOverviewResponse } = useOverview(
     'cafe',
@@ -131,57 +132,30 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   const formatData = useMemo(() => {
     if (!distribution) return [];
     return Object.entries(distribution)
-      .map(([key, item]: [string, any]) => ({
+      .map(([key, item]: [string, DistributionItem]) => ({
         name: item.poid_unit
-          ? item.poid_unit >= 1
-            ? `${item.poid_unit} kg`
-            : `${(parseFloat(item.poid_unit) * 1000).toFixed(0)} g`
+          ? formatWeight(Number(item.poid_unit))
           : key,
         ca: item.ca_total_ht,
         volume: item.poids_total,
-        part: parseFloat(item.percentage_kg) || 0,
+        part: parseFloat(item.percentage_kg.toLocaleString('fr-FR')) || 0,
       }))
       // .filter((item) => item.part >= 1)
       .sort((a, b) => b.part - a.part);
   }, [distribution]);
 
-  // Helper to calculate trend
-  const getTrend = (current?: number, previous?: number) => {
-    if (!isComparing || previous === undefined || previous === 0)
-      return undefined;
-    return calculateTrend(current || 0, previous || 0).value;
-  };
-
-  const getPreviousValue = (value?: number, suffix: string = '') => {
-    if (!isComparing || value === undefined) return '-';
-    return `${value}${suffix}`;
-  };
-
-  const getPreviousCurrencyValue = (value?: number) => {
-    if (!isComparing || value === undefined) return '-';
-    return `${(value / 1000).toFixed(1)}k€`;
-  };
 
   // Transform Evolution Data for Chart
   const currentYear = filters.period.start.getFullYear().toString();
-  const isMoreAYear = evolution && (Object.entries(evolution)?.length > 2);
+  const isCurrentYear =
+    filters.period.start.getFullYear() === new Date().getFullYear() &&
+    filters.period.start.getMonth() === 0 &&
+    filters.period.end.getMonth() === 11;
 
-  const evolutionData = evolution
-    ? Object.entries(evolution).flatMap(([year, yearData]) =>
-      Object.entries(yearData).flatMap(([month, monthData]: [string, EvolutionMonthData]) =>
-        Object.entries(monthData).flatMap(([_name, data]: [string, EvolutionData]) => {
-          return {
-            mois: `${month.substring(0, 3)} ${isMoreAYear ? year : ''}`,
-            ca: data.ca_total_ht,
-            volume: data.volume_total,
-            actif: data.actif
-          }
-        }),
-      )
-    )
-    : [];
-  evolutionData?.splice(-3)
-
+  const evolutionData = useMemo(() =>
+    transformEvolutionData<CafeMonthData>(evolution, currentYear, 12, isCurrentYear, filters.period),
+    [evolution, currentYear, isCurrentYear, filters.period]
+  );
   // KPI Values
   const caTotal = Number(overview?.ca_total_ht_global || 0) || 0;
   const volumeTotal = Number(overview?.volume_total_global || 0) || 0;
@@ -196,11 +170,9 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   const renderProductView = () => {
     if (!products) return null;
 
-    return Object.entries(products).map(([category, productList]) => {
+    return Object.entries(products).map(([category, productList]: [string, ProductMap]) => {
       // 1. Get current rows
-      const currentRows = Array.isArray(productList)
-        ? productList
-        : Object.values(productList ?? {});
+      const currentRows = Object.values(productList ?? {});
 
       if (!currentRows.length) return null;
 
@@ -211,14 +183,14 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         : Object.values(compareList ?? {});
 
       // 3. Merge data
-      const mergedData = currentRows.map((row: any) => {
+      const mergedData = currentRows.map((row) => {
         // Find matching row in previous period
         // Usually matching by 'type' or 'marque' or 'reference' depending on the category structure
         // We'll try common keys
-        const matchKey = row.type || row.marque || row.reference || row.categorie;
+        const matchKey = row.type;
 
-        const prevRow = compareRows.find((p: any) => {
-          const pKey = p.type || p.marque || p.reference || p.categorie;
+        const prevRow = compareRows.find((p) => {
+          const pKey = p.type;
           return pKey === matchKey;
         });
 
@@ -241,17 +213,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
       });
 
       // 4. Define columns based on isComparing
-      const columns: any[] = [
+      const columns: Columns[] = [
         { key: "type", label: "Type", width: "w-[30%]" },
       ];
 
       // Detect visual key
-      const firstRow = currentRows[0];
-      let mainKey = "type";
-      let mainLabel = "Type";
-      if (firstRow.marque) { mainKey = "marque"; mainLabel = "Marque"; }
-      else if (firstRow.categorie) { mainKey = "categorie"; mainLabel = "Catégorie"; }
-      else if (firstRow.reference) { mainKey = "reference"; mainLabel = "Référence"; }
+      const mainKey = "type";
+      const mainLabel = "Type";
 
       columns[0] = { key: mainKey, label: mainLabel, width: isComparing ? "w-[22%]" : "w-[40%]" };
 
@@ -259,7 +227,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
       columns.push({
         key: "ca_total_ht",
         label: "CA",
-        format: (v: number) => `${(v / 1000).toFixed(0)}k€`,
+        format: (v: number) => formatPrice(v),
         width: isComparing ? "w-[13%]" : "w-[30%]"
       });
 
@@ -267,7 +235,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         columns.push({
           key: "prev_ca",
           label: "Préc. (CA)",
-          format: (v: number) => v !== undefined ? `${(v / 1000).toFixed(0)}k€` : "-",
+          format: (v: number) => v !== undefined ? formatPrice(v) : "-",
           width: "w-[13%]"
         });
 
@@ -283,13 +251,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         });
       }
 
-      columns.push({ key: "volume_total", label: "Volume", format: (v: number) => `${Math.round(v)}kg`, width: isComparing ? "w-[13%]" : "w-[30%]" });
+      columns.push({ key: "volume_total", label: "Volume", format: (v: number) => formatWeight(v), width: isComparing ? "w-[13%]" : "w-[30%]" });
 
       if (isComparing) {
         columns.push({
           key: "prev_vol",
           label: "Préc. (Vol)",
-          format: (v: number) => v !== undefined ? `${Math.round(v)}kg` : "-",
+          format: (v: number) => v !== undefined ? formatWeight(v) : "-",
           width: "w-[13%]"
         });
 
@@ -334,7 +302,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <BaseKpiCard
             label="CA Total Café"
-            value={`${(caTotal / 1000).toFixed(1)}k€`}
+            value={formatPrice(caTotal)}
             previousValue={getPreviousCurrencyValue(caTotalPrev)}
             trend={getTrend(caTotal, caTotalPrev)}
             icon={<Coffee className="h-5 w-5 text-universe-cafe" />}
@@ -358,23 +326,23 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
             label="Part B2B"
             value={`${partB2B}%`}
             previousValue={getPreviousValue(partB2BPrev, '%')}
-            trend={getTrend(partB2B, partB2BPrev)}
+            trend={getTrend(partB2B, Number(partB2BPrev))}
             icon={<Bean className="h-5 w-5 text-universe-cafe" />}
             showComparison={isComparing}
-            onClick={() => openModal('partB2B')}
+          // onClick={() => openModal('partB2B')}
           />
           <BaseKpiCard
             label="Prix moyen / kg"
-            value={`${(prixMoyen || 0).toFixed(2)}€`}
+            value={formatPrice(prixMoyen || 0)}
             previousValue={
               isComparing && typeof prixMoyenPrev === 'number'
-                ? `${prixMoyenPrev.toFixed(2)}€`
+                ? formatPrice(prixMoyenPrev)
                 : '-'
             }
-            trend={getTrend(prixMoyen, prixMoyenPrev)}
+            trend={getTrend(prixMoyen, Number(prixMoyenPrev))}
             icon={<Droplets className="h-5 w-5 text-universe-cafe" />}
             showComparison={isComparing}
-            onClick={() => openModal('prixMoyen')}
+          // onClick={() => openModal('prixMoyen')}
           />
         </div>
       </div>
@@ -464,12 +432,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
                   borderRadius: '0.75rem',
                 }}
                 content={({ payload, ...props }) => {
-                  if (!payload || payload.every(p => !p.value || p.value === 0)) return null;
+                  if (!payload || payload.length === 0) return null;
+                  if (payload.every(p => !p.value || p.value === 0)) return null;
                   return <DefaultTooltipContent payload={payload} {...props} />;
                 }}
                 formatter={(value: number, name: string) => {
-                  if (name === 'CA (€)') {
-                    return [`${(value || 0).toLocaleString()}€`, 'CA'];
+                  if (name === 'CA') {
+                    return [formatPrice(value), 'CA'];
                   }
                   return [formatWeight(value || 0), 'Volume'];
                 }}
@@ -487,7 +456,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
               ) : (
                 <Bar
                   dataKey="ca"
-                  name="CA (€)"
+                  name="CA"
                   fill="hsl(25, 60%, 35%)"
                   radius={[4, 4, 0, 0]}
                 >
@@ -513,7 +482,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           {
             key: 'ca',
             label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(1)}k€`,
+            format: (v) => formatPrice(v),
           },
           { key: 'part', label: 'Part' },
         ]}
@@ -549,13 +518,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         data={[
           {
             segment: 'B2B',
-            volume: (Number(modalOverview?.volume_total_global) || 0) * ((Number(modalOverview?.part_b2b) || 0) / 100),
-            part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
+            volume: (Number(modalOverview?.volume_total_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
           },
           {
             segment: 'B2C / Particuliers',
-            volume: (Number(modalOverview?.volume_total_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
-            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
+            volume: (Number(modalOverview?.volume_total_global) || 0) * ((Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
           },
         ]}
         variant="cafe"
@@ -573,7 +542,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         ]}
         data={
           evolutionData.length > 0
-            ? evolutionData.map((item: any) => {
+            ? evolutionData.map((item) => {
               const monthKey = Object.keys(
                 evolution?.[currentYear] || {},
               ).find(
@@ -584,21 +553,14 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
               const rawMonth = monthKey
                 ? evolution[currentYear][monthKey]
                 : null;
-              const val = rawMonth?.part_b2b | 9 | 0;
+              const val = rawMonth?.part_b2b | 100 | 0;
               return {
                 mois: item.mois,
                 b2b: `${(val || 0).toFixed(1)}%`,
                 b2c: `${(100 - (val || 0)).toFixed(1)}%`,
               };
             })
-            : [
-              { mois: 'Jan', b2b: '64%', b2c: '36%' },
-              { mois: 'Fév', b2b: '65%', b2c: '35%' },
-              { mois: 'Mar', b2b: '66%', b2c: '34%' },
-              { mois: 'Avr', b2b: '66%', b2c: '34%' },
-              { mois: 'Mai', b2b: '67%', b2c: '33%' },
-              { mois: 'Juin', b2b: '66%', b2c: '34%' },
-            ]
+            : []
         }
         variant="cafe"
       />
@@ -610,7 +572,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         onClientChange={setModalClientId}
         columns={[
           { key: 'format', label: 'Format' },
-          { key: 'prix', label: 'Prix/kg', format: (v) => `${(Number(v) || 0).toFixed(2)}€` },
+          { key: 'prix', label: 'Prix/kg', format: (v) => formatPrice(v) },
         ]}
         data={[
           {
@@ -631,7 +593,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           {
             key: 'ca',
             label: 'CA',
-            format: (v) => `${(v / 1000).toFixed(0)}k€`,
+            format: (v) => formatPrice(v),
           },
           { key: 'volume', label: 'Volume (kg)' },
           { key: 'part', label: 'Part', format: (v) => `${v}%` },
@@ -650,7 +612,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           {
             key: 'ca',
             label: 'CA',
-            format: (v) => `${(v || 0).toLocaleString()}€`,
+            format: (v) => formatPrice(v),
           },
           { key: 'volume', label: 'Volume (kg)' },
         ]}

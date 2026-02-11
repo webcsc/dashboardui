@@ -1,6 +1,7 @@
 import type { FilterState } from '@/types';
 import { Products } from '@/types/products';
-import { format } from 'date-fns';
+import { ThirdPartie } from '@/types/thirdparti';
+import { format, subMonths } from 'date-fns';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -31,35 +32,56 @@ export interface OverviewResponse {
         ca_entretien_total_ht?: number;
 
         // Autres champs potentiels
-        [key: string]: any;
+        [key: string]: number | string;
     }
 }
 
 /**
- * Interface pour un mois dans la réponse Evolution
+ * Interface pour les données mensuelles communes
  */
-export interface EvolutionMonthData {
-    universe: string;
+export interface BaseMonthData {
+    actif: number;
     nombre_facture: number;
     nombre_product: number;
     ca_total_ht: number;
-    volume_total: number;
-    part_b2b: number;
-    actif: 0 | 1;
-    average_price_per_kg: number;
 }
+
+/**
+ * Interface pour les données mensuelles Café
+ */
+export interface CafeMonthData extends BaseMonthData {
+    volume_total: number;
+}
+
+/**
+ * Interface pour les données mensuelles Equipement
+ * Les clés sont dynamiques (ex: "MACHINES", "LOCATION MACHINES")
+ */
+export interface EquipementMonthData {
+    [category: string]: BaseMonthData;
+}
+
+/**
+ * Interface pour les données mensuelles Service
+ * Les clés sont les types de service (ex: "installation", "reparation", etc.)
+ */
+export interface ServiceMonthData {
+    [serviceType: string]: BaseMonthData;
+}
+
+type MonthData = CafeMonthData | EquipementMonthData | ServiceMonthData;
+
+type YearData<T> = Record<string, T extends MonthData ? T : MonthData>;
 
 /**
  * Interface pour la réponse de l'endpoint Evolution
  */
-export interface EvolutionResponse {
+export interface EvolutionResponse<T> {
     data: {
-        [year: string]: {
-            [month: string]: EvolutionMonthData;
-        } | any; // 'any' pour 'total' qui est un objet différent
+        years: YearData<T>;
         total: {
             ca_total_ht_global: number;
-            volume_total_global: number;
+            volume_total_global?: number;
             univers: string;
         }
     }
@@ -77,6 +99,7 @@ export interface DistributionItem {
     nombre_lignes: number;
     ca_total_ht: number;
     poids_total: number;
+    total_ht?: number;
 }
 
 /**
@@ -135,6 +158,9 @@ export interface CafeMonthData {
     volume_total: number;
 }
 
+type MonthBaseData<T> = Record<string, T>;
+type YearBaseData<T> = Record<string, MonthBaseData<T>>;
+
 /**
  * Interface pour la réponse de l'endpoint Summary
  */
@@ -146,9 +172,7 @@ export interface SummaryResponse {
     };
     evolution: {
         cafe: {
-            [year: string]: {
-                [month: string]: CafeMonthData;
-            } | any;
+            years: YearBaseData<CafeMonthData>;
             total: {
                 ca_total_ht_global: number;
                 volume_total_global: number;
@@ -156,17 +180,13 @@ export interface SummaryResponse {
             };
         };
         equipement: {
-            [year: string]: {
-                [month: string]: UniverseMonthDataItem[];
-            } | any;
+            years: YearBaseData<EquipementMonthData>;
             total: {
                 ca_total_ht_global: number;
             };
         };
         service: {
-            [year: string]: {
-                [month: string]: UniverseMonthDataItem[];
-            } | any;
+            years: YearBaseData<ServiceMonthData>;
             total: {
                 ca_total_ht_global: number;
             };
@@ -230,7 +250,7 @@ export async function fetchOverview(
     }
 
     if (filters.clientId) {
-        queryParams.append('fk_soc', filters.clientId);
+        queryParams.append('socids', filters.clientId);
     }
 
     if (filters.segments && filters.segments.length > 0) {
@@ -276,20 +296,24 @@ export async function fetchOverview(
  * console.log(evolution.data.total);
  * ```
  */
-export async function fetchEvolution(
+export async function fetchEvolution<T>(
     universe: string,
     filters: FilterState // Utilisé pour extraire l'année si non fournie explicitement
-): Promise<EvolutionResponse> {
+): Promise<EvolutionResponse<T>> {
     const queryParams = new URLSearchParams();
 
     // Format dates YYYY-MM-DD
     if (filters.period) {
-        queryParams.append('date_start', format(filters.period.start, 'yyyy-MM-dd'));
+        // Always fetch 12 months history for evolution charts (rolling window)
+        // regardless of the selected start date (which might be just the current month)
+        const adjustedStartDate = subMonths(filters.period.end, 11);
+
+        queryParams.append('date_start', format(adjustedStartDate, 'yyyy-MM-dd'));
         queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
     }
 
     if (filters.clientId) {
-        queryParams.append('fk_soc', filters.clientId);
+        queryParams.append('socids', filters.clientId);
     }
 
 
@@ -382,7 +406,7 @@ export async function fetchSummary(
     }
 
     if (filters.clientId) {
-        queryParams.append('fk_soc', filters.clientId);
+        queryParams.append('socids', filters.clientId);
     }
 
     if (filters.segments && filters.segments.length > 0) {
@@ -441,7 +465,7 @@ export async function fetchProducts(
     }
 
     if (filters.clientId) {
-        queryParams.append('fk_soc', filters.clientId);
+        queryParams.append('socids', filters.clientId);
     }
 
 
@@ -480,7 +504,7 @@ export async function fetchProducts(
  * console.log(thirdparties);
  * ```
  */
-export async function fetchThirdparties(): Promise<Thirdparty[]> {
+export async function fetchThirdparties(): Promise<ThirdPartie[]> {
     const queryParams = new URLSearchParams();
     queryParams.append('sortfield', 't.rowid');
     queryParams.append('sortorder', 'ASC');
@@ -500,7 +524,7 @@ export async function fetchThirdparties(): Promise<Thirdparty[]> {
     const data = await response.json();
 
     // Format data to only include id and name
-    return data.map((item: any) => ({
+    return data.map((item: ThirdPartie) => ({
         id: item.id?.toString() || '',
         name: item.name || '',
     }));

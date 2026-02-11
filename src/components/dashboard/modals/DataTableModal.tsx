@@ -24,21 +24,14 @@ import { Button } from "@/components/ui/button";
 import { X, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClientComboBox } from "@/components/ui/client-combobox";
-
-export interface TableColumn {
-  key: string;
-  label: string;
-  format?: (value: any) => string;
-  filterable?: boolean;
-  filterType?: "text" | "select";
-}
+import { TableColumn } from "@/types";
 
 export interface DataTableModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   columns: TableColumn[];
-  data: Record<string, any>[];
+  data: Record<string, number | string>[];
   variant?: "default" | "gc" | "pp" | "b2c" | "cafe" | "equipement" | "service";
   clientId?: string;
   onClientChange?: (id: string) => void;
@@ -301,7 +294,7 @@ export function DataTableModal({
                   <TableRow key={index} className="hover:bg-muted/50">
                     {columns.map((col) => (
                       <TableCell key={col.key}>
-                        {col.format ? col.format(row[col.key]) : row[col.key]}
+                        {col.format ? col.format(Number(row[col.key])) : row[col.key]}
                       </TableCell>
                     ))}
                   </TableRow>

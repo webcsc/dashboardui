@@ -46,7 +46,23 @@ export function ClientComboBox({ value, onChange }: ClientComboBoxProps) {
         loadClients()
     }, [])
 
-    const selectedClient = clients.find((client) => client.id === value)
+    const selectedIds = value ? value.split(",") : []
+
+    const handleSelect = (currentId: string) => {
+        const newSelectedIds = selectedIds.includes(currentId)
+            ? selectedIds.filter((id) => id !== currentId)
+            : [...selectedIds, currentId]
+
+        onChange(newSelectedIds.join(","))
+    }
+
+    const getButtonText = () => {
+        if (selectedIds.length === 0) return "Sélectionner des clients..."
+        if (selectedIds.length === 1) {
+            return clients.find((c) => c.id === selectedIds[0])?.name || "Client introuvable"
+        }
+        return `${selectedIds.length} clients sélectionnés`
+    }
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -57,9 +73,9 @@ export function ClientComboBox({ value, onChange }: ClientComboBoxProps) {
                     aria-expanded={open}
                     className="w-[300px] justify-between"
                 >
-                    {value
-                        ? selectedClient?.name || "Client introuvable"
-                        : "Sélectionner un client..."}
+                    <span className="truncate">
+                        {getButtonText()}
+                    </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
@@ -75,15 +91,12 @@ export function ClientComboBox({ value, onChange }: ClientComboBoxProps) {
                                 <CommandItem
                                     key={client.id}
                                     value={client.name}
-                                    onSelect={() => {
-                                        onChange(client.id === value ? "" : client.id)
-                                        setOpen(false)
-                                    }}
+                                    onSelect={() => handleSelect(client.id)}
                                 >
                                     <Check
                                         className={cn(
                                             "mr-2 h-4 w-4",
-                                            value === client.id ? "opacity-100" : "opacity-0"
+                                            selectedIds.includes(client.id) ? "opacity-100" : "opacity-0"
                                         )}
                                     />
                                     {client.name}

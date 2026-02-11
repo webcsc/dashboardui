@@ -1,3 +1,5 @@
+const KG_PER_TONNE = 1000;
+
 /**
  * Fonctions de formatage pour les valeurs du dashboard
  * @module formatters
@@ -75,43 +77,124 @@ export const formatNumber = (value: number): string => {
 };
 
 /**
- * Formate un prix unitaire
- * 
- * @param value - Prix en euros
- * @param decimals - Nombre de décimales (défaut: 2)
- * @returns Chaîne formatée
+ * Arrondi toujours "vers le haut" au sens business :
+ * @param value - Valeur à arrondir
+ * @param decimals - Nombre de décimales
+ * @returns Valeur arrondie
  * 
  * @example
  * ```typescript
- * formatPrice(38.80) // "38.80€"
- * ```
+ * roundUp(12.345, 1) // 12.4
  */
-export const formatPrice = (value: number, decimals: number = 2): string => {
-    return `${value.toFixed(decimals)}€`;
+const roundUp = (value: number, decimals: number): number => {
+  const factor = Math.pow(10, decimals);
+
+  return value >= 0
+    ? Math.ceil(value * factor) / factor
+    : Math.floor(value * factor) / factor;
 };
 
-const KG_PER_TONNE = 1000;
-
 /**
- * Formate un poids en kg ou tonnes selon une limite
+ * Formate une valeur monétaire avec arrondi "vers le haut" et suffixe k€ ou M€
  * 
- * @param kg - Poids en Kg
- * @param thresholdKg - Limite en Kg pour changer en T
- * @returns Chaîne formatée
+ * @param value - Valeur à formater
+ * @param decimals - Nombre de décimales
+ * @param currency - Devise (par défaut: "€")
+ * @returns Chaîne formatée avec le symbole de la devise
  * 
  * @example
  * ```typescript
- * formatWeight(500) // "500 kg"
- * formatWeight(2500) // "2.5 t"
- * ```
+ * formatPrice(485000) // "485k€"
+ * formatPrice(1200000) // "1.2M€"
+ * formatPrice(999) // "999€"
+ * formatPrice(-1500) // "-1.5k€"
  */
-export function formatWeight(kg: number, thresholdKg = 1000): string {
-  const safe = Number(kg) || 0;
+export const formatPrice = (
+  value: number,
+  decimals: number = 1,
+  currency: string = '€'
+): string => {
+  const sign = value < 0 ? '-' : '';
+  const abs = Math.abs(value);
 
-  if (safe >= thresholdKg) {
-    const t = safe / KG_PER_TONNE;
-    return `${t.toLocaleString(undefined, { maximumFractionDigits: 2 })} t`;
+  if (abs >= 1_000_000_000) {
+    const v = roundUp(abs / 1_000_000_000, decimals);
+    return `${sign}${v.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    })}B ${currency}`;
   }
 
-  return `${safe.toLocaleString('fr-FR')} kg`;
+  if (abs >= 1_000_000) {
+    const v = roundUp(abs / 1_000_000, decimals);
+    return `${sign}${v.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    })}M ${currency}`;
+  }
+
+  if (abs >= 1_000) {
+    const v = roundUp(abs / 1_000, decimals);
+    return `${sign}${v.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    })}k ${currency}`;
+  }
+
+  const v = roundUp(abs, decimals);
+  return `${sign}${v.toLocaleString('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  })} ${currency}`;
+};
+
+/**
+ * Formate un poids en kg ou tonnes selon le seuil
+ * @param kg - Poids en kilogrammes
+ * @param thresholdKg - Seuil en kg à partir duquel on affiche en tonnes
+ * @param decimals - Nombre de décimales
+ * @returns Chaîne formatée avec le symbole de la mesure
+ * 
+ * @example
+ * ```typescript
+ * formatWeight(1250) // "1.3 t"
+ * formatWeight(850)  // "850 kg"
+ * formatWeight(0.75) // "0.8 kg"
+ * formatWeight(-500) // "-500 kg"
+ * formatWeight(-1500) // "-1.5 t"
+ * ```
+ */
+export function formatWeight(
+  kg: number,
+  thresholdKg = 1000,
+  decimals: number = 1
+): string {
+  const safe = Number(kg) || 0;
+  const sign = safe < 0 ? '-' : '';
+  const abs = Math.abs(safe);
+
+  // Tonnes
+  if (abs >= thresholdKg) {
+    const t = roundUp(abs / KG_PER_TONNE, decimals);
+    return `${sign}${t.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    })} t`;
+  }
+
+  // < 1 kg
+  if (abs < 1) {
+    const v = roundUp(abs, decimals);
+    return `${sign}${v.toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    })} kg`;
+  }
+
+  // ≥ 1 kg
+  const v = roundUp(abs, decimals);
+  return `${sign}${v.toLocaleString('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  })} kg`;
 }

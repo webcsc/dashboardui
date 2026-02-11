@@ -2,19 +2,13 @@ import { useState, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTableModal } from "../modals/DataTableModal";
-
-interface TableColumn {
-  key: string;
-  label: string;
-  format?: (value: any, row?: any) => React.ReactNode;
-  width?: string;
-}
+import { TableColumn } from "@/types";
 
 interface ProductCategorySectionProps {
   title: string;
   icon?: ReactNode;
   columns: TableColumn[];
-  data: Record<string, any>[];
+  data: Record<string, number | string>[];
   variant?: "cafe" | "equipement" | "service";
   compact?: boolean;
 }
@@ -93,7 +87,7 @@ export function ProductCategorySection({
                       ) {
                         return "-";
                       }
-                      const formatted = col.format ? col.format(val) : val;
+                      const formatted = col.format ? col.format(Number(val)) : val;
                       if (typeof formatted === 'string' && (formatted.includes('NaN') || formatted.includes('undefined'))) {
                         return "-";
                       }
@@ -111,7 +105,7 @@ export function ProductCategorySection({
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         title={title}
-        columns={columns as any}
+        columns={columns}
         data={data}
         variant={variant}
       />

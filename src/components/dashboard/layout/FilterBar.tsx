@@ -104,19 +104,19 @@ export function FilterBar({
     });
   };
 
-  const handleSegmentToggle = (segment: string) => {
-    const newSegments = filters.segments.includes(segment)
-      ? filters.segments.filter((s) => s !== segment)
-      : [...filters.segments, segment];
-    onFiltersChange({ ...filters, segments: newSegments });
-  };
+  // const handleSegmentToggle = (segment: string) => {
+  //   const newSegments = filters.segments.includes(segment)
+  //     ? filters.segments.filter((s) => s !== segment)
+  //     : [...filters.segments, segment];
+  //   onFiltersChange({ ...filters, segments: newSegments });
+  // };
 
-  const handleRegionToggle = (region: string) => {
-    const newRegions = filters.regions.includes(region)
-      ? filters.regions.filter((r) => r !== region)
-      : [...filters.regions, region];
-    onFiltersChange({ ...filters, regions: newRegions });
-  };
+  // const handleRegionToggle = (region: string) => {
+  //   const newRegions = filters.regions.includes(region)
+  //     ? filters.regions.filter((r) => r !== region)
+  //     : [...filters.regions, region];
+  //   onFiltersChange({ ...filters, regions: newRegions });
+  // };
 
   const handleClientTypeToggle = (type: string) => {
     const newTypes = filters.clientTypes.includes(type)
