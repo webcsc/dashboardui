@@ -182,21 +182,23 @@ export function FilterBar({
         </Select>
 
         {/* Custom Date Range */}
-        <DateRangePicker
-          value={filters.period}
-          onChange={(newPeriod) => {
-            const shouldSetDefaultCompare = isComparing && !filters.comparePeriod;
-            onFiltersChange({
-              ...filters,
-              period: newPeriod,
-              comparePeriod: shouldSetDefaultCompare
-                ? getComparePeriodDates(newPeriod)
-                : filters.comparePeriod,
-            });
-          }}
-          disabled={selectedPreset !== 'custom'}
-          label="Sélectionner une période"
-        />
+        {(selectedPreset === 'custom' || (isComparing && filters.comparePeriod)) && (
+          <DateRangePicker
+            value={filters.period}
+            onChange={(newPeriod) => {
+              const shouldSetDefaultCompare = isComparing && !filters.comparePeriod;
+              onFiltersChange({
+                ...filters,
+                period: newPeriod,
+                comparePeriod: shouldSetDefaultCompare
+                  ? getComparePeriodDates(newPeriod)
+                  : filters.comparePeriod,
+              });
+            }}
+            disabled={selectedPreset !== 'custom'}
+            label="Sélectionner une période"
+          />
+        )}
 
         {/* Comparison Toggle */}
         {showComparison && (

@@ -4,7 +4,8 @@ import { ImpactCard } from "../cards/ImpactCard";
 import { Coffee, Euro, Leaf, TrendingUp, Building2, Zap, User } from "lucide-react";
 import type { FilterState } from "@/types";
 import { useState } from "react";
-import { DataTableModal, TableColumn } from "../modals/DataTableModal";
+import { DataTableModal } from "../modals/DataTableModal";
+import { TableColumn } from "@/types";
 
 interface OverviewViewProps {
   filters: FilterState;

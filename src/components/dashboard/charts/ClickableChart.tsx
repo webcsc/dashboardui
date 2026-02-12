@@ -9,7 +9,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { DataTableModal, TableColumn } from "../modals/DataTableModal";
+import { DataTableModal } from "../modals/DataTableModal";
+import { TableColumn } from "@/types";
 
 interface ClickableChartProps {
   title: string;
@@ -21,6 +22,7 @@ interface ClickableChartProps {
   valuePrefix?: string;
   valueSuffix?: string;
   variant?: "default" | "gc" | "pp" | "b2c";
+  isLoading?: boolean; // Loading state for table modal
 }
 
 export function ClickableChart({
@@ -33,6 +35,7 @@ export function ClickableChart({
   valuePrefix = "",
   valueSuffix = "",
   variant = "default",
+  isLoading = false,
 }: ClickableChartProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -62,12 +65,12 @@ export function ClickableChart({
       : []),
     ...(showComparison && previousData
       ? [
-          {
-            key: "variation",
-            label: "Variation",
-            format: (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`,
-          },
-        ]
+        {
+          key: "variation",
+          label: "Variation",
+          format: (v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`,
+        },
+      ]
       : []),
   ];
 
@@ -160,6 +163,7 @@ export function ClickableChart({
         columns={tableColumns}
         data={tableData}
         variant={variant}
+        isLoading={isLoading}
       />
     </>
   );

@@ -115,7 +115,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const { data: distributionResponse, isLoading: isLoadingDistribution, isFetching: isFetchingDistribution } = useDistribution('service', filters);
   const { data: modalOverviewResponse } = useOverview('service', modalFilters, { enabled: isAnyOpen });
   const { data: modalEvolutionResponse } = useEvolution<ServiceMonthData>('service', modalFilters, { enabled: isAnyOpen });
-  const { data: modalDistributionResponse } = useDistribution('service', modalFilters, { enabled: isAnyOpen });
+  const { data: modalDistributionResponse, isFetching: isFetchingModalDistribution } = useDistribution('service', modalFilters, { enabled: isAnyOpen });
 
   const modalOverview = modalOverviewResponse?.data;
   const modalEvolution = modalEvolutionResponse?.data;
@@ -292,7 +292,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
                 <Bar dataKey="total" name="CA Total" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} />
               ) : (
                 <>
-                  <Bar dataKey="reparation" name="Échange" fill="hsl(281, 46%, 24%)" radius={[4, 4, 0, 0]} stackId="a">
+                  <Bar dataKey="echange" name="Échange" fill="hsl(281, 46%, 24%)" radius={[4, 4, 0, 0]} stackId="a">
                     {renderBarCells(evolutionData, "hsl(281, 46%, 24%)")}
                   </Bar>
                   <Bar dataKey="reparation" name="Réparation" fill="hsl(280, 45%, 45%)" radius={[4, 4, 0, 0]} stackId="a">
@@ -385,6 +385,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         ]}
         data={pretMachineData}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
 
       {/* Échange standard */}
@@ -441,6 +442,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           },
         ].sort((a, b) => b.ca - a.ca)}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.installation || false}
@@ -455,6 +457,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         ]}
         data={installationData}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.reparation || false}
@@ -469,6 +472,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         ]}
         data={reparationSousAssistanceData}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.cartouche || false}
@@ -483,6 +487,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         ]}
         data={cartoucheData}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.pretEchange || false}
@@ -500,6 +505,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           { type: "Échange standard", ca: modalOverview?.ca_echange_total_ht || 0, nombre: 68 },
         ]}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.evolution || false}
@@ -517,6 +523,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         ]}
         data={modalEvolutionData.length > 0 ? modalEvolutionData : (modalEvolutionResponse ? [] : evolutionMensuelleData)}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.repartition || false}
@@ -531,6 +538,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         ]}
         data={modalRepartitionData}
         variant="service"
+        isLoading={isFetchingModalDistribution}
       />
     </div>
   );

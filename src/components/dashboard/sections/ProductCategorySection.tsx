@@ -1,8 +1,12 @@
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTableModal } from "../modals/DataTableModal";
 import { TableColumn } from "@/types";
+import { useProducts } from "@/hooks/useDashboardData";
+import { useViewFilters } from "@/hooks";
+import type { FilterState } from "@/types";
+import type { Product } from "@/types/products";
 
 interface ProductCategorySectionProps {
   title: string;
@@ -11,6 +15,10 @@ interface ProductCategorySectionProps {
   data: Record<string, number | string>[];
   variant?: "cafe" | "equipement" | "service";
   compact?: boolean;
+  clientId?: string;
+  onClientChange?: (id: string) => void;
+  filters?: FilterState;
+  isLoading?: boolean;
 }
 
 const variantStyles = {
@@ -38,9 +46,63 @@ export function ProductCategorySection({
   data,
   variant = "cafe",
   compact = false,
+  clientId,
+  onClientChange,
+  filters,
 }: ProductCategorySectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalClientId, setModalClientId] = useState<string | undefined>(clientId);
   const styles = variantStyles[variant];
+
+  // Sync modal client filter with prop when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      setModalClientId(clientId);
+    }
+  }, [isModalOpen, clientId]);
+
+  // Only fetch data if filters are provided (for views with API support)
+  const shouldFetchData = !!filters && isModalOpen;
+
+  // Create modal filters with the modal client (provide default if not available)
+  const { modalFilters } = useViewFilters(
+    filters || { period: { start: new Date(), end: new Date() } } as FilterState,
+    modalClientId
+  );
+
+  // Fetch products data for modal when it's open (only if filters provided)
+  const { data: modalProductsResponse, isFetching: isFetchingProducts, error: productsError } = useProducts(
+    variant,
+    modalFilters,
+    { enabled: shouldFetchData }
+  );
+
+  // Extract the category data from the response
+  const modalData = useMemo(() => {
+    // Handle 404 errors by returning empty array
+    if (productsError) {
+      console.warn(`Error fetching products for ${title}:`, productsError);
+      return [];
+    }
+
+    if (!shouldFetchData || !modalProductsResponse?.products) return data;
+
+    // The API returns { products: { "Category Name": { items } } }
+    const categoryData = modalProductsResponse.products[title];
+    if (!categoryData || Array.isArray(categoryData)) return data;
+
+    // Transform the category data to match the expected format
+    return Object.values(categoryData).map((item: Product) => ({
+      ...item,
+    }));
+  }, [shouldFetchData, modalProductsResponse, title, data, productsError]);
+
+  const handleClientChange = (newClientId: string) => {
+    setModalClientId(newClientId);
+    if (onClientChange) {
+      onClientChange(newClientId);
+    }
+  };
 
   const displayData = compact ? data.slice(0, 4) : data;
   const hasMore = compact && data.length > 4;
@@ -106,8 +168,11 @@ export function ProductCategorySection({
         onOpenChange={setIsModalOpen}
         title={title}
         columns={columns}
-        data={data}
+        data={modalData}
         variant={variant}
+        clientId={modalClientId}
+        onClientChange={handleClientChange}
+        isLoading={(isFetchingProducts && shouldFetchData)}
       />
     </>
   );

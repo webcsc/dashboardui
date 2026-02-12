@@ -16,6 +16,7 @@ interface BaseKpiCardProps {
     tableColumns?: TableColumn[];
     tableData?: Record<string, number | string>[];
     onClick?: () => void; // Support for external modal management
+    isLoading?: boolean; // Loading state for table modal
 }
 
 export function BaseKpiCard({
@@ -30,6 +31,7 @@ export function BaseKpiCard({
     tableColumns = [],
     tableData = [],
     onClick,
+    isLoading = false,
 }: BaseKpiCardProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -75,12 +77,12 @@ export function BaseKpiCard({
                                 <div className="flex items-center gap-3">
                                     <div className="flex flex-col">
                                         <span className="text-xs text-muted-foreground">Actuel</span>
-                                        <span className="text-2xl font-bold text-foreground">{displayValue}</span>
+                                        <span className="text-2xl font-bold text-foreground text-nowrap">{displayValue}</span>
                                     </div>
                                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                     <div className="flex flex-col">
                                         <span className="text-xs text-muted-foreground">Précédent</span>
-                                        <span className="text-lg font-semibold text-muted-foreground">{displayPreviousValue}</span>
+                                        <span className="text-lg font-semibold text-muted-foreground text-nowrap">{displayPreviousValue}</span>
                                     </div>
                                 </div>
                             </div>
@@ -128,6 +130,7 @@ export function BaseKpiCard({
                     columns={tableColumns}
                     data={tableData}
                     variant={variant}
+                    isLoading={isLoading}
                 />
             )}
         </>

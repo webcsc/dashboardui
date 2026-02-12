@@ -26,12 +26,11 @@ import {
 import { useViewFilters, useComparisonHelpers } from '@/hooks';
 import { transformDistributionData, transformEvolutionData } from '@/lib/dashboard-utils';
 import { DataTableModal } from '../modals/DataTableModal';
-import { ProductCategorySection } from '../sections/ProductCategorySection';
 import { Switch } from '@/components/ui/switch';
 import { formatPrice, formatWeight } from '@/lib';
 import { CafeMonthData, DistributionItem } from '@/services/dashboard-api';
-import { ProductMap } from '@/types/products';
 import { UniverseViewSkeleton } from '../skeletons';
+import { renderProductView } from '@/lib/product-view-helpers';
 
 interface Columns {
   key: string;
@@ -73,7 +72,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   // Fetch data specifically for modals (independent of main view)
   const { data: modalOverviewResponse } = useOverview('cafe', modalFilters, { enabled: isAnyOpen });
   const { data: modalEvolutionResponse } = useEvolution<CafeMonthData>('cafe', modalFilters, { enabled: isAnyOpen });
-  const { data: modalDistributionResponse } = useDistribution('cafe', modalFilters, { enabled: isAnyOpen });
+  const { data: modalDistributionResponse, isFetching: isFetchingModalDistribution } = useDistribution('cafe', modalFilters, { enabled: isAnyOpen });
 
   const modalOverview = modalOverviewResponse?.data;
 
@@ -139,12 +138,11 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           : key,
         ca: item.ca_total_ht,
         volume: item.poids_total,
-        part: parseFloat(item.percentage_kg.toLocaleString('fr-FR')) || 0,
+        part: Number(item.percentage_kg) || 0,
       }))
       // .filter((item) => item.part >= 1)
       .sort((a, b) => b.part - a.part);
   }, [distribution]);
-
 
   // Transform Evolution Data for Chart
   const currentYear = filters.period.start.getFullYear().toString();
@@ -175,124 +173,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     return <UniverseViewSkeleton />;
   }
 
-  const renderProductView = () => {
-    if (!products) return null;
 
-    return Object.entries(products).map(([category, productList]: [string, ProductMap]) => {
-      // 1. Get current rows
-      const currentRows = Object.values(productList ?? {});
-
-      if (!currentRows.length) return null;
-
-      // 2. Get comparison rows (if any)
-      const compareList = compareProducts?.[category];
-      const compareRows = Array.isArray(compareList)
-        ? compareList
-        : Object.values(compareList ?? {});
-
-      // 3. Merge data
-      const mergedData = currentRows.map((row) => {
-        // Find matching row in previous period
-        // Usually matching by 'type' or 'marque' or 'reference' depending on the category structure
-        // We'll try common keys
-        const matchKey = row.type;
-
-        const prevRow = compareRows.find((p) => {
-          const pKey = p.type;
-          return pKey === matchKey;
-        });
-
-        const currentCA = row.ca_total_ht || 0;
-        const prevCA = prevRow?.ca_total_ht;
-
-        const currentVol = row.volume_total || 0;
-        const prevVol = prevRow?.volume_total;
-
-        const trendCA = getTrend(currentCA, prevCA);
-        const trendVol = getTrend(currentVol, prevVol);
-
-        return {
-          ...row,
-          prev_ca: prevCA,
-          trend_ca: trendCA,
-          prev_vol: prevVol,
-          trend_vol: trendVol,
-        };
-      });
-
-      // 4. Define columns based on isComparing
-      const columns: Columns[] = [
-        { key: "type", label: "Type", width: "w-[30%]" },
-      ];
-
-      // Detect visual key
-      const mainKey = "type";
-      const mainLabel = "Type";
-
-      columns[0] = { key: mainKey, label: mainLabel, width: isComparing ? "w-[22%]" : "w-[40%]" };
-
-
-      columns.push({
-        key: "ca_total_ht",
-        label: "CA",
-        format: (v: number) => formatPrice(v),
-        width: isComparing ? "w-[13%]" : "w-[30%]"
-      });
-
-      if (isComparing) {
-        columns.push({
-          key: "prev_ca",
-          label: "Préc. (CA)",
-          format: (v: number) => v !== undefined ? formatPrice(v) : "-",
-          width: "w-[13%]"
-        });
-
-        columns.push({
-          key: "trend_ca",
-          label: "Évol. (CA)",
-          format: (v: number) => {
-            if (v === undefined || isNaN(v)) return "-";
-            const colorClass = v > 0 ? "text-emerald-600" : v < 0 ? "text-red-600" : "text-muted-foreground";
-            return <span className={colorClass}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
-          },
-          width: "w-[13%]"
-        });
-      }
-
-      columns.push({ key: "volume_total", label: "Volume", format: (v: number) => formatWeight(v), width: isComparing ? "w-[13%]" : "w-[30%]" });
-
-      if (isComparing) {
-        columns.push({
-          key: "prev_vol",
-          label: "Préc. (Vol)",
-          format: (v: number) => v !== undefined ? formatWeight(v) : "-",
-          width: "w-[13%]"
-        });
-
-        columns.push({
-          key: "trend_vol",
-          label: "Évol. (Vol)",
-          format: (v: number) => {
-            if (v === undefined || isNaN(v)) return "-";
-            const colorClass = v > 0 ? "text-emerald-600" : v < 0 ? "text-red-600" : "text-muted-foreground";
-            return <span className={colorClass}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
-          },
-          width: "w-[13%]"
-        });
-      }
-
-      return (
-        <ProductCategorySection
-          key={category}
-          title={category}
-          icon={<Bean className="h-5 w-5 text-universe-cafe" />}
-          columns={columns}
-          data={mergedData}
-          variant="cafe"
-        />
-      );
-    });
-  };
 
   const renderCustomBarCell = () => {
     return evolutionData.map((entry, index) => (
@@ -319,10 +200,10 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           />
           <BaseKpiCard
             label="Volume Total"
-            value={`${(volumeTotal / 1000).toFixed(1)}t`}
+            value={`${formatWeight(volumeTotal)}`}
             previousValue={
               isComparing && volumeTotalPrev !== undefined
-                ? `${(volumeTotalPrev / 1000).toFixed(1)}t`
+                ? `${formatWeight(volumeTotalPrev)}`
                 : '-'
             }
             trend={getTrend(volumeTotal, volumeTotalPrev)}
@@ -475,8 +356,20 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           </ResponsiveContainer>
         </div>
       </div>
-
-      {renderProductView()}
+      {/* Products Section */}
+      {renderProductView({
+        products,
+        compareProducts,
+        isComparing,
+        getTrend,
+        variant: 'cafe',
+        icon: <Bean className="h-5 w-5 text-universe-cafe" />,
+        matchKey: 'type',
+        mainLabel: 'Type',
+        clientId: modalClientId,
+        onClientChange: setModalClientId,
+        filters,
+      })}
 
       {/* Modals */}
       <DataTableModal
@@ -497,16 +390,17 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         data={[
           {
             segment: 'B2B',
-            ca: (Number(modalOverview?.ca_total_ht_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
-            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
-          },
-          {
-            segment: 'B2C / Particuliers',
             ca: (Number(modalOverview?.ca_total_ht_global) || 0) * ((Number(modalOverview?.part_b2b) || 0) / 100),
             part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
           },
+          {
+            segment: 'B2C / Particuliers',
+            ca: (Number(modalOverview?.ca_total_ht_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
+          },
         ]}
         variant="cafe"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.volumeTotal || false}
@@ -526,16 +420,17 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         data={[
           {
             segment: 'B2B',
-            volume: (Number(modalOverview?.volume_total_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
-            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
-          },
-          {
-            segment: 'B2C / Particuliers',
             volume: (Number(modalOverview?.volume_total_global) || 0) * ((Number(modalOverview?.part_b2b) || 0) / 100),
             part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
           },
+          {
+            segment: 'B2C / Particuliers',
+            volume: (Number(modalOverview?.volume_total_global) || 0) * (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
+            part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
+          },
         ]}
         variant="cafe"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.partB2B || false}
@@ -571,6 +466,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
             : []
         }
         variant="cafe"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.prixMoyen || false}
@@ -589,6 +485,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           },
         ]}
         variant="cafe"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.format || false}
@@ -604,10 +501,11 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
             format: (v) => formatPrice(v),
           },
           { key: 'volume', label: 'Volume (kg)' },
-          { key: 'part', label: 'Part', format: (v) => `${v}%` },
+          { key: 'part', label: 'Part', format: (v) => `${v.toFixed(1)}%` },
         ]}
         data={modalFormatData}
         variant="cafe"
+        isLoading={isFetchingModalDistribution}
       />
       <DataTableModal
         open={openModals.evolution || false}
@@ -626,6 +524,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         ]}
         data={modalEvolutionData}
         variant="cafe"
+        isLoading={isFetchingModalDistribution}
       />
     </div>
   );

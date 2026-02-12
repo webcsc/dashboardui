@@ -33,7 +33,7 @@ export const transformDistributionData = (distribution: DistributionResponse['di
                 : key,
             ca: item.ca_total_ht,
             volume: item.poids_total,
-            part: parseFloat(item.percentage_kg.toLocaleString('fr-FR')) || 0,
+            part: Number(item.percentage_kg) || 0,
             // Keep raw values if needed
             raw_poid_unit: item.poid_unit,
         }))
@@ -180,7 +180,7 @@ export const transformServiceDistribution = (distribution: DistributionResponse[
         .map(([key, item]: [string, DistributionItem]) => ({
             name: item.poid_unit || key,
             ca: item.total_ht,
-            value: parseFloat(item.percentage_ht.toLocaleString('fr-FR')) || 0,
+            value: Number(item.percentage_ht) || 0,
         }))
         .filter((item) => item.value > 0)
         .sort((a, b) => b.value - a.value);

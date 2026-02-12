@@ -129,8 +129,8 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
   const { data: productsResponse } = useProducts('equipement', filters);
 
   // Fetch API Data (Modals)
-  const { data: modalOverviewResponse } = useOverview('equipement', modalFilters, { enabled: isAnyOpen });
-  const { data: modalEvolutionResponse } = useEvolution<EquipementMonthData>('equipement', modalFilters, { enabled: isAnyOpen });
+  const { data: modalOverviewResponse, isFetching: isFetchingModalOverview } = useOverview('equipement', modalFilters, { enabled: isAnyOpen });
+  const { data: modalEvolutionResponse, isFetching: isFetchingModalEvolution } = useEvolution<EquipementMonthData>('equipement', modalFilters, { enabled: isAnyOpen });
 
   const modalOverview = modalOverviewResponse?.data;
   const modalEvolution = modalEvolutionResponse?.data;
@@ -549,6 +549,7 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
         ]}
         data={modalEvolutionData}
         variant="equipement"
+        isLoading={isFetchingModalEvolution}
       />
     </div >
   );

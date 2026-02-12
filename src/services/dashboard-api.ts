@@ -366,6 +366,18 @@ export async function fetchDistribution(
         queryParams.append('date_end', format(filters.period.end, 'yyyy-MM-dd'));
     }
 
+    if (filters.clientId) {
+        queryParams.append('socids', filters.clientId);
+    }
+
+    if (filters.regions && filters.regions.length > 0) {
+        queryParams.append('regions', filters.regions.join(','));
+    }
+
+    if (filters.clientTypes && filters.clientTypes.length > 0) {
+        queryParams.append('client_types', filters.clientTypes.join(','));
+    }
+
     const url = `${API_BASE_URL}/cscdataapi/distribution/${universe}?${queryParams.toString()}`;
 
     const response = await fetch(url, {

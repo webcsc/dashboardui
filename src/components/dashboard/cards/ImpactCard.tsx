@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Leaf, TreeDeciduous, Cloud } from "lucide-react";
-import { DataTableModal, TableColumn } from "../modals/DataTableModal";
+import { DataTableModal } from "../modals/DataTableModal";
+import { TableColumn } from "@/types";
 
 interface ImpactCardProps {
     totalOcoc: number;

@@ -4,7 +4,8 @@ import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { Building2, TrendingUp, Coffee, Users, Euro, Clock, Target, FileText } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import type { FilterState } from "@/types";
-import { DataTableModal, TableColumn } from "../modals/DataTableModal";
+import { DataTableModal } from "../modals/DataTableModal";
+import { TableColumn } from "@/types";
 import { ImpactCard } from "../cards/ImpactCard";
 
 interface GrandsComptesViewProps {
