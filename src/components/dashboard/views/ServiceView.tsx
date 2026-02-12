@@ -12,6 +12,7 @@ import { transformServiceDistribution, transformServiceEvolution } from "@/lib/d
 import { useState, useEffect } from "react";
 import { formatPrice } from "@/lib";
 import { ServiceMonthData } from "@/services/dashboard-api";
+import { UniverseViewSkeleton } from "../skeletons";
 
 interface ServiceViewProps {
   filters: FilterState;
@@ -109,11 +110,9 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const { getTrend, getPreviousValue, getPreviousCurrencyValue } = useComparisonHelpers(isComparing);
 
   // Fetch API Data
-  const { data: overviewResponse } = useOverview('service', filters);
-  const { data: evolutionResponse } = useEvolution<ServiceMonthData>('service', filters);
-  const { data: distributionResponse } = useDistribution('service', filters);
-
-  // Fetch API Data (Modals)
+  const { data: overviewResponse, isLoading: isLoadingOverview, isFetching: isFetchingOverview } = useOverview('service', filters);
+  const { data: evolutionResponse, isLoading: isLoadingEvolution, isFetching: isFetchingEvolution } = useEvolution<ServiceMonthData>('service', filters);
+  const { data: distributionResponse, isLoading: isLoadingDistribution, isFetching: isFetchingDistribution } = useDistribution('service', filters);
   const { data: modalOverviewResponse } = useOverview('service', modalFilters, { enabled: isAnyOpen });
   const { data: modalEvolutionResponse } = useEvolution<ServiceMonthData>('service', modalFilters, { enabled: isAnyOpen });
   const { data: modalDistributionResponse } = useDistribution('service', modalFilters, { enabled: isAnyOpen });
@@ -147,6 +146,13 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const modalEvolutionData = useMemo(() => transformServiceEvolution(modalEvolution, currentYear, 12, isCurrentYear, filters.period), [modalEvolution, currentYear, isCurrentYear, filters.period]);
   const caTotal = overview?.ca_total_ht_global || 0;
   const modalCaTotal = modalOverview?.ca_total_ht_global || 0;
+
+  // Show skeleton while loading or fetching (includes filter changes)
+  const isLoading = isLoadingOverview || isLoadingEvolution || isLoadingDistribution;
+  const isFetching = isFetchingOverview || isFetchingEvolution || isFetchingDistribution;
+  if (isLoading || isFetching || !overview || !evolution || !distribution) {
+    return <UniverseViewSkeleton />;
+  }
 
   const renderBarCells = (data: typeof evolutionData, color: string) => {
     return data.map((entry, index) => (

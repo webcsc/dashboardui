@@ -11,11 +11,18 @@ import { useModalState } from "@/hooks/useModalState";
 import { DataTableModal } from "../modals/DataTableModal";
 import { useState, useEffect } from "react";
 import { formatPrice, formatWeight } from "@/lib";
+import { RecapUniversSkeleton } from "../skeletons";
 
 interface RecapUniversViewProps {
   filters: FilterState;
   isComparing: boolean;
 }
+
+interface EvolutionDataItem {
+  ca_total_ht?: number;
+}
+
+type MonthData = Record<string, EvolutionDataItem | { [key: string]: EvolutionDataItem }>;
 
 export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps) {
   // Modal state
@@ -185,18 +192,18 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       // Equipement
       const equipYearData = equipementData?.[year];
       if (equipYearData?.[month]) {
-        const mData = equipYearData[month];
+        const mData = equipYearData[month] as MonthData;
         if (mData && typeof mData === 'object') {
-          equipement = Number(Object.values(mData).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht)) || 0, 0));
+          equipement = Number(Object.values(mData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht)) || 0, 0));
         }
       }
 
       // Service
       const serviceYearData = serviceData?.[year];
       if (serviceYearData?.[month]) {
-        const mData = serviceYearData[month];
+        const mData = serviceYearData[month] as MonthData;
         if (mData && typeof mData === 'object') {
-          service = Number(Object.values(mData).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0));
+          service = Number(Object.values(mData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0));
         }
       }
 
@@ -210,13 +217,13 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
         }
 
         if (equipementPrevData?.[prevYear]?.[prevMonth]) {
-          const mData = equipementPrevData[prevYear][prevMonth];
-          equipementPrev = Number(Object.values(mData as Record<string, any>).reduce<number>((acc, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0));
+          const mData = equipementPrevData[prevYear][prevMonth] as MonthData;
+          equipementPrev = Number(Object.values(mData).reduce<number>((acc, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0));
         }
 
         if (servicePrevData?.[prevYear]?.[prevMonth]) {
-          const mData = servicePrevData[prevYear][prevMonth];
-          servicePrev = Number(Object.values(mData as Record<string, any>).reduce<number>((acc, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0));
+          const mData = servicePrevData[prevYear][prevMonth] as MonthData;
+          servicePrev = Number(Object.values(mData).reduce<number>((acc, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0));
         }
       }
 
@@ -290,11 +297,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     // Process current period cafe evolution (object structure)
     const cafeEvolution = modalSummary.evolution.cafe?.[currentYear];
     if (cafeEvolution) {
-      Object.entries(cafeEvolution).forEach(([month, data]: [string, any]) => {
-        if (month !== 'total' && data?.cafe?.ca_total_ht) {
+      Object.entries(cafeEvolution).forEach(([month, data]) => {
+        if (month !== 'total' && typeof data === 'object' && data !== null && 'cafe' in data && typeof data.cafe === 'object' && data.cafe !== null && 'ca_total_ht' in data.cafe) {
           const monthIndex = MONTH_ORDER.indexOf(month);
           if (monthIndex > -1) {
-            monthlyData[month].cafe = data.cafe.ca_total_ht;
+            monthlyData[month].cafe = data.cafe.ca_total_ht as number;
           }
         }
       });
@@ -303,9 +310,9 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     // Process current period equipement evolution (object structure)
     const equipementEvolution = modalSummary.evolution.equipement?.[currentYear];
     if (equipementEvolution) {
-      Object.entries(equipementEvolution).forEach(([month, dataObject]: [string, any]) => {
-        if (month !== 'total' && dataObject) {
-          const monthTotal = Object.values(dataObject).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0);
+      Object.entries(equipementEvolution).forEach(([month, dataObject]) => {
+        if (month !== 'total' && dataObject && typeof dataObject === 'object') {
+          const monthTotal = Object.values(dataObject as MonthData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0);
           const monthIndex = MONTH_ORDER.indexOf(month);
           if (monthIndex > -1) {
             monthlyData[month].equipement = Number(monthTotal);
@@ -317,9 +324,9 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     // Process current period service evolution (object structure)
     const serviceEvolution = modalSummary.evolution.service?.[currentYear];
     if (serviceEvolution) {
-      Object.entries(serviceEvolution).forEach(([month, dataObject]: [string, any]) => {
-        if (month !== 'total' && dataObject) {
-          const monthTotal = Object.values(dataObject).reduce((acc: number, item: any) => acc + (Number(item?.ca_total_ht) || 0), 0);
+      Object.entries(serviceEvolution).forEach(([month, dataObject]) => {
+        if (month !== 'total' && dataObject && typeof dataObject === 'object') {
+          const monthTotal = Object.values(dataObject as MonthData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0);
           const monthIndex = MONTH_ORDER.indexOf(month);
           if (monthIndex > -1) {
             monthlyData[month].service = Number(monthTotal);
@@ -346,8 +353,10 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     service: true
   });
 
-  const handleLegendClick = (e: any) => {
-    const { dataKey } = e;
+  const handleLegendClick = (data: unknown) => {
+    // The data parameter contains the clicked legend item
+    const legendData = data as { dataKey?: string };
+    const { dataKey } = legendData;
     if (dataKey && dataKey in visibleSeries) {
       setVisibleSeries(prev => ({
         ...prev,
@@ -355,6 +364,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       }));
     }
   };
+
+  // Show skeleton while loading (after all hooks have been called)
+  if (isLoadingTrend || !summary) {
+    return <RecapUniversSkeleton />;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

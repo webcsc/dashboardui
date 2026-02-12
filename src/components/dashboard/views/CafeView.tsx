@@ -31,6 +31,7 @@ import { Switch } from '@/components/ui/switch';
 import { formatPrice, formatWeight } from '@/lib';
 import { CafeMonthData, DistributionItem } from '@/services/dashboard-api';
 import { ProductMap } from '@/types/products';
+import { UniverseViewSkeleton } from '../skeletons';
 
 interface Columns {
   key: string;
@@ -94,9 +95,9 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   );
 
   // Fetch API Data
-  const { data: overviewResponse } = useOverview('cafe', filters);
-  const { data: evolutionResponse } = useEvolution<CafeMonthData>('cafe', filters);
-  const { data: distributionResponse } = useDistribution('cafe', filters);
+  const { data: overviewResponse, isLoading: isLoadingOverview, isFetching: isFetchingOverview } = useOverview('cafe', filters);
+  const { data: evolutionResponse, isLoading: isLoadingEvolution, isFetching: isFetchingEvolution } = useEvolution<CafeMonthData>('cafe', filters);
+  const { data: distributionResponse, isLoading: isLoadingDistribution, isFetching: isFetchingDistribution } = useDistribution('cafe', filters);
   const { data: productsResponse } = useProducts('cafe', filters);
 
   // Volume switch state
@@ -166,6 +167,13 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   const volumeTotalPrev = compareOverview?.volume_total_global;
   const partB2BPrev = compareOverview?.part_b2b;
   const prixMoyenPrev = compareOverview?.average_price_per_kg;
+
+  // Show skeleton while loading or fetching (includes filter changes)
+  const isLoading = isLoadingOverview || isLoadingEvolution || isLoadingDistribution;
+  const isFetching = isFetchingOverview || isFetchingEvolution || isFetchingDistribution;
+  if (isLoading || isFetching || !overview || !evolution || !distribution) {
+    return <UniverseViewSkeleton />;
+  }
 
   const renderProductView = () => {
     if (!products) return null;

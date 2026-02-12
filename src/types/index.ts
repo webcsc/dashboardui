@@ -11,8 +11,8 @@ export interface TableColumn {
     key: string;
     /** Label affiché dans l'en-tête */
     label: string;
-    /** Fonction de formatage optionnelle pour la valeur */
-    format?: (value: number) => string;
+    /** Fonction de formatage optionnelle pour la valeur - peut retourner du texte ou du JSX */
+    format?: (value: number) => string | React.ReactNode;
     /** Indique si la colonne est filtrable */
     filterable?: boolean;
     /** Type de filtre à appliquer */

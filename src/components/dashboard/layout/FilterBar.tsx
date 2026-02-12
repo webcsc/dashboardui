@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   CalendarIcon,
   ArrowLeftRight,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 
 import { getPeriodDates, getComparePeriodDates } from '@/lib/date-utils';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { fr } from 'date-fns/locale';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ClientComboBox } from '@/components/ui/client-combobox';
+import { fetchThirdparties, Thirdparty } from '@/services/dashboard-api';
 
 import type { FilterState } from '@/types';
 
@@ -75,6 +77,20 @@ export function FilterBar({
   const [selectedPreset, setSelectedPreset] = useState('current-month');
   const [isComparing, setIsComparing] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [clients, setClients] = useState<Thirdparty[]>([]);
+
+  // Load clients for display
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const data = await fetchThirdparties();
+        setClients(data);
+      } catch (err) {
+        console.error('Failed to load clients', err);
+      }
+    };
+    loadClients();
+  }, []);
 
   const handlePresetChange = (preset: string) => {
     setSelectedPreset(preset);
@@ -166,45 +182,21 @@ export function FilterBar({
         </Select>
 
         {/* Custom Date Range */}
-        {/* Date Display */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="justify-start text-left font-normal disabled:opacity-80"
-              disabled={selectedPreset !== 'custom'}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {format(filters.period.start, 'dd MMM', { locale: fr })} -{' '}
-              {format(filters.period.end, 'dd MMM yyyy', { locale: fr })}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              selected={{
-                from: filters.period.start,
-                to: filters.period.end,
-              }}
-              onSelect={(range) => {
-                if (range?.from && range?.to) {
-                  const newPeriod = { start: range.from, end: range.to };
-                  // When using a custom period, do not forcibly overwrite an existing
-                  // comparePeriod so the user can edit the compare range separately.
-                  const shouldSetDefaultCompare = isComparing && !filters.comparePeriod;
-                  onFiltersChange({
-                    ...filters,
-                    period: newPeriod,
-                    comparePeriod: shouldSetDefaultCompare
-                      ? getComparePeriodDates(newPeriod)
-                      : filters.comparePeriod,
-                  });
-                }
-              }}
-              className="p-3 pointer-events-auto"
-            />
-          </PopoverContent>
-        </Popover>
+        <DateRangePicker
+          value={filters.period}
+          onChange={(newPeriod) => {
+            const shouldSetDefaultCompare = isComparing && !filters.comparePeriod;
+            onFiltersChange({
+              ...filters,
+              period: newPeriod,
+              comparePeriod: shouldSetDefaultCompare
+                ? getComparePeriodDates(newPeriod)
+                : filters.comparePeriod,
+            });
+          }}
+          disabled={selectedPreset !== 'custom'}
+          label="Sélectionner une période"
+        />
 
         {/* Comparison Toggle */}
         {showComparison && (
@@ -221,35 +213,14 @@ export function FilterBar({
 
         {/* Allow editing compare period when comparing and using custom period */}
         {isComparing && filters.comparePeriod && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="justify-start text-left font-normal disabled:opacity-80"
-                disabled={selectedPreset !== 'custom'}
-              >
-                <CalendarIcon className="h-4 w-4" />
-                {filters.comparePeriod
-                  ? `${format(filters.comparePeriod.start, 'dd MMM', { locale: fr })} - ${format(filters.comparePeriod.end, 'dd MMM yyyy', { locale: fr })}`
-                  : 'Sélectionner comparatif'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={{
-                  from: filters.comparePeriod?.start,
-                  to: filters.comparePeriod?.end,
-                }}
-                onSelect={(range) => {
-                  if (range?.from && range?.to) {
-                    onFiltersChange({ ...filters, comparePeriod: { start: range.from, end: range.to } });
-                  }
-                }}
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
+          <DateRangePicker
+            value={filters.comparePeriod}
+            onChange={(newComparePeriod) => {
+              onFiltersChange({ ...filters, comparePeriod: newComparePeriod });
+            }}
+            disabled={selectedPreset !== 'custom'}
+            label="Période de comparaison"
+          />
         )}
 
         <div className="flex-1" />
@@ -301,6 +272,45 @@ export function FilterBar({
           </Button>
         )}
       </div>
+
+      {/* Selected Clients Display Bar */}
+      {filters.clientId && (() => {
+        const selectedIds = filters.clientId.split(',').filter(id => id);
+        if (selectedIds.length === 0) return null;
+
+        return (
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
+            {selectedIds.map((clientId) => {
+              const client = clients.find(c => c.id === clientId);
+              if (!client) return null;
+
+              return (
+                <Badge
+                  key={clientId}
+                  variant="secondary"
+                  className="pl-3 pr-2 py-1.5 text-sm gap-1.5 hover:bg-secondary/80 transition-colors"
+                >
+                  <span>{client.name}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newIds = selectedIds.filter(id => id !== clientId);
+                      onFiltersChange({
+                        ...filters,
+                        clientId: newIds.length > 0 ? newIds.join(',') : undefined
+                      });
+                    }}
+                    className="ml-1 rounded-sm hover:bg-muted p-0.5 transition-colors"
+                    aria-label={`Retirer ${client.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Extended Filters */}
       {showMoreFilters && (

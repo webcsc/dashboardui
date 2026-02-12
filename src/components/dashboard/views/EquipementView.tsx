@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Settings, ShoppingCart, Shield, Droplets } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, DefaultTooltipContent, Cell } from "recharts";
 import type { FilterState } from "@/types";
-import { useOverview, useEvolution, useDistribution } from "@/hooks/useDashboardData";
+import { useOverview, useEvolution, useDistribution, useProducts } from "@/hooks/useDashboardData";
 import { useViewFilters, useComparisonHelpers } from '@/hooks';
 import { DataTableModal } from "../modals/DataTableModal";
 import { ProductCategorySection } from "../sections/ProductCategorySection";
@@ -12,6 +12,7 @@ import { transformEquipementDistribution, transformEquipementEvolution } from "@
 import { useState, useEffect } from "react";
 import { formatPrice } from "@/lib";
 import { EquipementMonthData } from "@/services/dashboard-api";
+import { UniverseViewSkeleton } from "../skeletons";
 
 interface EquipementViewProps {
   filters: FilterState;
@@ -122,9 +123,10 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
   const { modalFilters, comparisonFilters } = useViewFilters(filters, modalClientId);
   const { getTrend, getPreviousCurrencyValue } = useComparisonHelpers(isComparing);
 
-  // Fetch API Data (Main View)
-  const { data: overviewResponse } = useOverview('equipement', filters);
-  const { data: evolutionResponse } = useEvolution<EquipementMonthData>('equipement', filters);
+  // Fetch API Data  
+  const { data: overviewResponse, isLoading: isLoadingOverview, isFetching: isFetchingOverview } = useOverview('equipement', filters);
+  const { data: evolutionResponse, isLoading: isLoadingEvolution, isFetching: isFetchingEvolution } = useEvolution<EquipementMonthData>('equipement', filters);
+  const { data: productsResponse } = useProducts('equipement', filters);
 
   // Fetch API Data (Modals)
   const { data: modalOverviewResponse } = useOverview('equipement', modalFilters, { enabled: isAnyOpen });
@@ -165,6 +167,13 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
 
   const caTotal = overview?.ca_total_ht_global || 0;
   const modalCaTotal = modalOverview?.ca_total_ht_global || 0;
+
+  // Show skeleton while loading or fetching (includes filter changes)
+  const isLoading = isLoadingOverview || isLoadingEvolution;
+  const isFetching = isFetchingOverview || isFetchingEvolution;
+  if (isLoading || isFetching || !overview || !evolution) {
+    return <UniverseViewSkeleton />;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

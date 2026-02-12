@@ -18,13 +18,13 @@ const KG_PER_TONNE = 1000;
  * ```
  */
 export const formatCurrency = (value: number): string => {
-    if (value >= 1000000) {
-        return `${(value / 1000000).toFixed(1)}M€`;
-    }
-    if (value >= 1000) {
-        return `${(value / 1000).toFixed(0)}k€`;
-    }
-    return `${value}€`;
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1)}M€`;
+  }
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(0)}k€`;
+  }
+  return `${value}€`;
 };
 
 /**
@@ -41,7 +41,7 @@ export const formatCurrency = (value: number): string => {
  * ```
  */
 export const formatVolume = (value: number, unit: string = 'kg'): string => {
-    return `${value.toLocaleString('fr-FR')} ${unit}`;
+  return `${value.toLocaleString('fr-FR')} ${unit}`;
 };
 
 /**
@@ -58,7 +58,7 @@ export const formatVolume = (value: number, unit: string = 'kg'): string => {
  * ```
  */
 export const formatPercentage = (value: number, decimals: number = 1): string => {
-    return `${value.toFixed(decimals)}%`;
+  return `${value.toFixed(decimals)}%`;
 };
 
 /**
@@ -73,7 +73,7 @@ export const formatPercentage = (value: number, decimals: number = 1): string =>
  * ```
  */
 export const formatNumber = (value: number): string => {
-    return value.toLocaleString('fr-FR');
+  return value.toLocaleString('fr-FR');
 };
 
 /**
