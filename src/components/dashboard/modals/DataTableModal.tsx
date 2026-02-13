@@ -26,6 +26,11 @@ import { cn } from "@/lib/utils";
 import { ClientComboBox } from "@/components/ui/client-combobox";
 import { TableColumn } from "@/types";
 
+export interface CustomFilter {
+  label: string;
+  options: { value: string; label: string }[];
+}
+
 export interface DataTableModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -36,6 +41,12 @@ export interface DataTableModalProps {
   clientId?: string;
   onClientChange?: (id: string) => void;
   isLoading?: boolean;
+  customFilters?: CustomFilter[];
+  metadata?: Record<string, any>;
+  onCustomFilterChange?: (
+    filterValues: Record<string, string>,
+    metadata?: Record<string, any>,
+  ) => Record<string, number | string>[];
 }
 
 const variantStyles = {
@@ -70,11 +81,17 @@ export function DataTableModal({
   clientId,
   onClientChange,
   isLoading = false,
+  customFilters = [],
+  metadata = {},
+  onCustomFilterChange,
 }: DataTableModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>(
     {},
   );
+  const [customFilterValues, setCustomFilterValues] = useState<
+    Record<string, string>
+  >({});
   const [showFilters, setShowFilters] = useState(false);
 
   // Get unique values for each filterable column
@@ -277,6 +294,19 @@ export function DataTableModal({
     return options;
   }, [columns, data]);
 
+  // Apply custom filter transformation if provided
+  const transformedData = useMemo(() => {
+    if (onCustomFilterChange && Object.keys(customFilterValues).length > 0) {
+      const hasActiveFilter = Object.values(customFilterValues).some(
+        (v) => v && v !== "all",
+      );
+      if (hasActiveFilter) {
+        return onCustomFilterChange(customFilterValues, metadata);
+      }
+    }
+    return data;
+  }, [data, customFilterValues, onCustomFilterChange, metadata]);
+
   // Filter data based on search and column filters
   const filteredData = useMemo(() => {
     const isValueInRange = (value: number, rangeLabel: string): boolean => {
@@ -329,7 +359,7 @@ export function DataTableModal({
       return false;
     };
 
-    return data.filter((row) => {
+    return transformedData.filter((row) => {
       // Global search
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -361,16 +391,18 @@ export function DataTableModal({
 
       return true;
     });
-  }, [data, searchTerm, columnFilters, columns]);
+  }, [transformedData, searchTerm, columnFilters, columns]);
 
   const activeFiltersCount =
     Object.values(columnFilters).filter((v) => v && v !== "all").length +
+    Object.values(customFilterValues).filter((v) => v && v !== "all").length +
     (searchTerm ? 1 : 0) +
     (clientId ? 1 : 0);
 
   const clearFilters = () => {
     setSearchTerm("");
     setColumnFilters({});
+    setCustomFilterValues({});
     if (onClientChange) {
       onClientChange("");
     }
@@ -381,6 +413,7 @@ export function DataTableModal({
     if (!newOpen) {
       setSearchTerm("");
       setColumnFilters({});
+      setCustomFilterValues({});
       setShowFilters(false);
     }
     onOpenChange(newOpen);
@@ -455,6 +488,36 @@ export function DataTableModal({
           {/* Column filters */}
           {showFilters && (
             <div className="flex flex-wrap gap-2 animate-fade-in">
+              {/* Custom filters first */}
+              {customFilters.map((customFilter, index) => (
+                <div key={`custom-${index}`} className="min-w-[140px]">
+                  <Select
+                    value={customFilterValues[customFilter.label] || "all"}
+                    onValueChange={(value) =>
+                      setCustomFilterValues((prev) => ({
+                        ...prev,
+                        [customFilter.label]: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder={customFilter.label} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">
+                        Tous ({customFilter.label})
+                      </SelectItem>
+                      {customFilter.options.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+
+              {/* Column filters */}
               {columns.map((col) => {
                 const options = filterOptions[col.key];
                 if (!options || options.length <= 1) return null;
@@ -491,7 +554,7 @@ export function DataTableModal({
 
         {/* Results count */}
         <div className="text-xs text-muted-foreground py-1">
-          {filteredData.length} / {data.length} résultats
+          {filteredData.length} / {transformedData.length} résultats
         </div>
 
         {/* Table */}

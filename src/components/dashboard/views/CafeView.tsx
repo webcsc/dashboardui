@@ -35,13 +35,6 @@ import { CafeMonthData, DistributionItem } from "@/services/dashboard-api";
 import { UniverseViewSkeleton } from "../skeletons";
 import { renderProductView } from "@/lib/product-view-helpers";
 
-interface Columns {
-  key: string;
-  label: string;
-  width: string;
-  format?: (value: number) => string | JSX.Element;
-}
-
 interface CafeViewProps {
   filters: FilterState;
   isComparing: boolean;
@@ -193,7 +186,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   );
   // KPI Values
   const caTotal = Number(overview?.ca_total_ht_global || 0) || 0;
-  const volumeTotal = Number(overview?.volume_total_global || 0) || 0;
+  const volumeTotal = Number(overview?.volume_total_cafe || 0) || 0;
   const partB2B = Number(overview?.part_b2b || 0) || 0;
   const prixMoyen = Number(overview?.average_price_per_kg || 0) || 0;
 
@@ -227,9 +220,10 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           <Coffee className="h-6 w-6 text-universe-cafe" />
           Univers Café – Vue d'ensemble
         </h2>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <BaseKpiCard
-            label="CA Total Café"
+            label="CA Total"
             value={formatPrice(caTotal)}
             previousValue={getPreviousCurrencyValue(caTotalPrev)}
             trend={getTrend(caTotal, caTotalPrev)}
@@ -423,6 +417,82 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         title="Répartition CA Café"
         clientId={modalClientId}
         onClientChange={setModalClientId}
+        customFilters={[
+          {
+            label: "Type de CA",
+            options: [
+              { value: "cafe", label: "CA total café" },
+              { value: "the_divers", label: "CA total thé et divers" },
+            ],
+          },
+        ]}
+        metadata={{
+          ca_total_ht_cafe: Number(modalOverview?.ca_total_ht_cafe) || 0,
+          volume_total_cafe: Number(modalOverview?.volume_total_cafe) || 0,
+          ca_total_ht_global: Number(modalOverview?.ca_total_ht_global) || 0,
+          part_b2b: Number(modalOverview?.part_b2b) || 0,
+        }}
+        onCustomFilterChange={(filterValues, metadata) => {
+          const selectedType = filterValues["Type de CA"];
+
+          if (!selectedType || selectedType === "all" || !metadata) {
+            // Return default B2B/B2C breakdown
+            return [
+              {
+                segment: "B2B",
+                ca:
+                  (metadata?.ca_total_ht_global || 0) *
+                  ((metadata?.part_b2b || 0) / 100),
+                part: `${(metadata?.part_b2b || 0).toFixed(1)}%`,
+              },
+              {
+                segment: "B2C / Particuliers",
+                ca:
+                  (metadata?.ca_total_ht_global || 0) *
+                  (1 - (metadata?.part_b2b || 0) / 100),
+                part: `${(100 - (metadata?.part_b2b || 0)).toFixed(1)}%`,
+              },
+            ];
+          }
+
+          if (selectedType === "cafe") {
+            // Show CA breakdown for café specifically
+            const caCafe = metadata.ca_total_ht_cafe || 0;
+            return [
+              {
+                segment: "CA Café B2B",
+                ca: caCafe * ((metadata?.part_b2b || 0) / 100),
+                part: `${(metadata?.part_b2b || 0).toFixed(1)}%`,
+              },
+              {
+                segment: "CA Café B2C",
+                ca: caCafe * (1 - (metadata?.part_b2b || 0) / 100),
+                part: `${(100 - (metadata?.part_b2b || 0)).toFixed(1)}%`,
+              },
+            ];
+          }
+
+          if (selectedType === "the_divers") {
+            // Show CA breakdown for thé et divers (global - café)
+            const caTheDivers =
+              (metadata?.ca_total_ht_global || 0) -
+              (metadata?.ca_total_ht_cafe || 0);
+            return [
+              {
+                segment: "CA Thé et Divers B2B",
+                ca: caTheDivers * ((metadata?.part_b2b || 0) / 100),
+                part: `${(metadata?.part_b2b || 0).toFixed(1)}%`,
+              },
+              {
+                segment: "CA Thé et Divers B2C",
+                ca: caTheDivers * (1 - (metadata?.part_b2b || 0) / 100),
+                part: `${(100 - (metadata?.part_b2b || 0)).toFixed(1)}%`,
+              },
+            ];
+          }
+
+          return [];
+        }}
         columns={[
           { key: "segment", label: "Segment" },
           {

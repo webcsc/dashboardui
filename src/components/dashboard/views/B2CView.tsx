@@ -1,8 +1,26 @@
 import { useState } from "react";
 import { SimpleKpiCard } from "../cards/SimpleKpiCard";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
-import { User, Coffee, TrendingUp, Euro, Target, Star, Share2 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import {
+  User,
+  Coffee,
+  TrendingUp,
+  Euro,
+  Target,
+  Star,
+  Share2,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from "recharts";
 import type { FilterState } from "@/types";
 import { DataTableModal } from "../modals/DataTableModal";
 
@@ -95,7 +113,11 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
             tableTitle="Évolution MRR B2C"
             tableColumns={[
               { key: "mois", label: "Mois" },
-              { key: "mrr", label: "MRR", format: (v) => `${(v || 0).toLocaleString()}€` },
+              {
+                key: "mrr",
+                label: "MRR",
+                format: (v) => `${(v || 0).toLocaleString()}€`,
+              },
               { key: "abonnes", label: "Abonnés" },
               { key: "panier", label: "Panier moy.", format: (v) => `${v}€` },
             ]}
@@ -179,14 +201,24 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Évolution MRR Abonnements</h3>
-            <span className="text-xs text-muted-foreground underline">Voir tableau</span>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={mrrData}>
               <defs>
                 <linearGradient id="colorMrrB2c" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(145, 45%, 35%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(145, 45%, 35%)" stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor="hsl(145, 45%, 35%)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="hsl(145, 45%, 35%)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
@@ -194,7 +226,9 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
               <YAxis
                 stroke="hsl(25, 15%, 45%)"
                 fontSize={12}
-                tickFormatter={(value) => `${((value || 0) / 1000).toFixed(0)}k€`}
+                tickFormatter={(value) =>
+                  `${((value || 0) / 1000).toFixed(0)}k€`
+                }
               />
               <Tooltip
                 contentStyle={{
@@ -202,7 +236,10 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
                   border: "1px solid hsl(35, 20%, 88%)",
                   borderRadius: "0.75rem",
                 }}
-                formatter={(value: number) => [`${(value || 0).toLocaleString()}€`, "MRR"]}
+                formatter={(value: number) => [
+                  `${(value || 0).toLocaleString()}€`,
+                  "MRR",
+                ]}
               />
               <Area
                 type="monotone"
@@ -222,7 +259,9 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Courbe de rétention</h3>
-            <span className="text-xs text-muted-foreground underline">Voir tableau</span>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={retentionData}>
@@ -339,7 +378,11 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
         title="Données MRR Abonnements"
         columns={[
           { key: "month", label: "Mois" },
-          { key: "mrr", label: "MRR", format: (v) => `${(v || 0).toLocaleString()}€` },
+          {
+            key: "mrr",
+            label: "MRR",
+            format: (v) => `${(v || 0).toLocaleString()}€`,
+          },
         ]}
         data={mrrData}
         variant="b2c"
@@ -358,6 +401,3 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
     </div>
   );
 }
-
-
-

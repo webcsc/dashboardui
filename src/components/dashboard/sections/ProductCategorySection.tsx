@@ -1,6 +1,13 @@
 import { useState, ReactNode, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { DataTableModal } from "../modals/DataTableModal";
 import { TableColumn } from "@/types";
 import { useProducts } from "@/hooks/useDashboardData";
@@ -10,6 +17,7 @@ import type { Product } from "@/types/products";
 
 interface ProductCategorySectionProps {
   title: string;
+  titleModal?: string;
   icon?: ReactNode;
   columns: TableColumn[];
   data: Record<string, number | string>[];
@@ -41,6 +49,7 @@ const variantStyles = {
 
 export function ProductCategorySection({
   title,
+  titleModal,
   icon,
   columns,
   data,
@@ -51,7 +60,9 @@ export function ProductCategorySection({
   filters,
 }: ProductCategorySectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalClientId, setModalClientId] = useState<string | undefined>(clientId);
+  const [modalClientId, setModalClientId] = useState<string | undefined>(
+    clientId,
+  );
   const styles = variantStyles[variant];
 
   // Sync modal client filter with prop when modal opens
@@ -66,16 +77,17 @@ export function ProductCategorySection({
 
   // Create modal filters with the modal client (provide default if not available)
   const { modalFilters } = useViewFilters(
-    filters || { period: { start: new Date(), end: new Date() } } as FilterState,
-    modalClientId
+    filters ||
+      ({ period: { start: new Date(), end: new Date() } } as FilterState),
+    modalClientId,
   );
 
   // Fetch products data for modal when it's open (only if filters provided)
-  const { data: modalProductsResponse, isFetching: isFetchingProducts, error: productsError } = useProducts(
-    variant,
-    modalFilters,
-    { enabled: shouldFetchData }
-  );
+  const {
+    data: modalProductsResponse,
+    isFetching: isFetchingProducts,
+    error: productsError,
+  } = useProducts(variant, modalFilters, { enabled: shouldFetchData });
 
   // Extract the category data from the response
   const modalData = useMemo(() => {
@@ -112,11 +124,16 @@ export function ProductCategorySection({
       <div
         className={cn(
           "rounded-xl border bg-card overflow-hidden cursor-pointer hover:shadow-lg transition-all",
-          styles.borderColor
+          styles.borderColor,
         )}
         onClick={() => setIsModalOpen(true)}
       >
-        <div className={cn("px-4 py-3 flex items-center justify-between", styles.headerBg)}>
+        <div
+          className={cn(
+            "px-4 py-3 flex items-center justify-between",
+            styles.headerBg,
+          )}
+        >
           <div className="flex items-center gap-2">
             {icon}
             <h4 className={cn("font-semibold", styles.headerText)}>{title}</h4>
@@ -129,7 +146,10 @@ export function ProductCategorySection({
           <TableHeader>
             <TableRow>
               {columns.map((col) => (
-                <TableHead key={col.key} className={cn("text-xs text-center", col.width)}>
+                <TableHead
+                  key={col.key}
+                  className={cn("text-xs text-center", col.width)}
+                >
                   {col.label}
                 </TableHead>
               ))}
@@ -139,18 +159,27 @@ export function ProductCategorySection({
             {displayData.map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {columns.map((col) => (
-                  <TableCell key={col.key} className={cn("text-sm py-2 text-center", col.width)}>
+                  <TableCell
+                    key={col.key}
+                    className={cn("text-sm py-2 text-center", col.width)}
+                  >
                     {(() => {
                       const val = row[col.key];
                       if (
                         val === undefined ||
                         val === null ||
-                        (typeof val === 'number' && isNaN(val))
+                        (typeof val === "number" && isNaN(val))
                       ) {
                         return "-";
                       }
-                      const formatted = col.format ? col.format(Number(val)) : val;
-                      if (typeof formatted === 'string' && (formatted.includes('NaN') || formatted.includes('undefined'))) {
+                      const formatted = col.format
+                        ? col.format(Number(val))
+                        : val;
+                      if (
+                        typeof formatted === "string" &&
+                        (formatted.includes("NaN") ||
+                          formatted.includes("undefined"))
+                      ) {
                         return "-";
                       }
                       return formatted;
@@ -166,17 +195,14 @@ export function ProductCategorySection({
       <DataTableModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        title={title}
+        title={titleModal || title}
         columns={columns}
         data={modalData}
         variant={variant}
         clientId={modalClientId}
         onClientChange={handleClientChange}
-        isLoading={(isFetchingProducts && shouldFetchData)}
+        isLoading={isFetchingProducts && shouldFetchData}
       />
     </>
   );
 }
-
-
-

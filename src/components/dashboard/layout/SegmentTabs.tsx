@@ -1,6 +1,16 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Zap, User, Coffee, Settings, Wrench, LayoutDashboard, BarChart3, Box } from "lucide-react";
+import {
+  Building2,
+  Zap,
+  User,
+  Coffee,
+  Settings,
+  Wrench,
+  LayoutDashboard,
+  BarChart3,
+  Box,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SegmentTabsProps {
@@ -41,12 +51,12 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
       {/* Toggle Switch pour les groupes */}
       <div className="flex items-center bg-muted rounded-lg p-1 w-fit">
         <button
-          disabled
+          onClick={() => handleGroupChange("kpi")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all opacity-50 cursor-not-allowed",
+            "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeGroup === "kpi"
               ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <BarChart3 className="h-4 w-4" />
@@ -59,7 +69,7 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
             "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeGroup === "univers"
               ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Box className="h-4 w-4" />
@@ -144,6 +154,3 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
     </div>
   );
 }
-
-
-
