@@ -54,8 +54,10 @@ const variantButtonStyles = {
   pp: "bg-segment-pp/10 hover:bg-segment-pp/20 text-segment-pp",
   b2c: "bg-segment-b2c/10 hover:bg-segment-b2c/20 text-segment-b2c",
   cafe: "bg-universe-cafe/10 hover:bg-universe-cafe/20 text-universe-cafe",
-  equipement: "bg-universe-equipement/10 hover:bg-universe-equipement/20 text-universe-equipement",
-  service: "bg-universe-service/10 hover:bg-universe-service/20 text-universe-service",
+  equipement:
+    "bg-universe-equipement/10 hover:bg-universe-equipement/20 text-universe-equipement",
+  service:
+    "bg-universe-service/10 hover:bg-universe-service/20 text-universe-service",
 };
 
 export function DataTableModal({
@@ -70,7 +72,9 @@ export function DataTableModal({
   isLoading = false,
 }: DataTableModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>(
+    {},
+  );
   const [showFilters, setShowFilters] = useState(false);
 
   // Get unique values for each filterable column
@@ -78,18 +82,35 @@ export function DataTableModal({
     const options: Record<string, string[]> = {};
     // French month abbreviations mapping
     const monthMapping: Record<string, number> = {
-      'jan': 0, 'janv': 0, 'janvier': 0,
-      'fév': 1, 'fev': 1, 'février': 1, 'fevrier': 1,
-      'mar': 2, 'mars': 2,
-      'avr': 3, 'avril': 3,
-      'mai': 4,
-      'juin': 5,
-      'juil': 6, 'juillet': 6,
-      'aoû': 7, 'aout': 7, 'août': 7,
-      'sep': 8, 'sept': 8, 'septembre': 8,
-      'oct': 9, 'octobre': 9,
-      'nov': 10, 'novembre': 10,
-      'déc': 11, 'dec': 11, 'décembre': 11, 'decembre': 11
+      jan: 0,
+      janv: 0,
+      janvier: 0,
+      fév: 1,
+      fev: 1,
+      février: 1,
+      fevrier: 1,
+      mar: 2,
+      mars: 2,
+      avr: 3,
+      avril: 3,
+      mai: 4,
+      juin: 5,
+      juil: 6,
+      juillet: 6,
+      aoû: 7,
+      aout: 7,
+      août: 7,
+      sep: 8,
+      sept: 8,
+      septembre: 8,
+      oct: 9,
+      octobre: 9,
+      nov: 10,
+      novembre: 10,
+      déc: 11,
+      dec: 11,
+      décembre: 11,
+      decembre: 11,
     };
 
     const getMonthValue = (val: string) => {
@@ -122,7 +143,9 @@ export function DataTableModal({
         }
 
         // try finding a key that starts with this part
-        const foundKey = Object.keys(monthMapping).find(k => cleanPart.startsWith(k) || k.startsWith(cleanPart));
+        const foundKey = Object.keys(monthMapping).find(
+          (k) => cleanPart.startsWith(k) || k.startsWith(cleanPart),
+        );
         if (foundKey) {
           monthIndex = monthMapping[foundKey];
           break;
@@ -135,23 +158,31 @@ export function DataTableModal({
 
     const isNumericColumn = (col: TableColumn, values: unknown[]) => {
       // Don't treat as numeric if it has a percentage format
-      if (col.label.toLowerCase().includes('part') || col.label.includes('%')) {
-        return 'percentage';
+      if (col.label.toLowerCase().includes("part") || col.label.includes("%")) {
+        return "percentage";
       }
 
       // Check if values are mostly numbers
-      const numericCount = values.filter(v => typeof v === 'number' || !isNaN(Number(v))).length;
+      const numericCount = values.filter(
+        (v) => typeof v === "number" || !isNaN(Number(v)),
+      ).length;
       const isNumeric = numericCount / values.length > 0.8;
 
       // Detect if it's currency, volume, or other numeric
       if (isNumeric) {
-        if (col.label.toLowerCase().includes('ca') || col.label.toLowerCase().includes('prix')) {
-          return 'currency';
+        if (
+          col.label.toLowerCase().includes("ca") ||
+          col.label.toLowerCase().includes("prix")
+        ) {
+          return "currency";
         }
-        if (col.label.toLowerCase().includes('volume') || col.label.toLowerCase().includes('kg')) {
-          return 'weight';
+        if (
+          col.label.toLowerCase().includes("volume") ||
+          col.label.toLowerCase().includes("kg")
+        ) {
+          return "weight";
         }
-        return 'number';
+        return "number";
       }
 
       return false;
@@ -168,12 +199,12 @@ export function DataTableModal({
       if (range < 0.01) return [];
 
       // Percentage ranges
-      if (type === 'percentage') {
+      if (type === "percentage") {
         const ranges = [];
-        if (min < 25) ranges.push('< 25%');
-        if (min < 50 && max >= 25) ranges.push('25% - 50%');
-        if (min < 75 && max >= 50) ranges.push('50% - 75%');
-        if (max >= 75) ranges.push('≥ 75%');
+        if (min < 25) ranges.push("< 25%");
+        if (min < 50 && max >= 25) ranges.push("25% - 50%");
+        if (min < 75 && max >= 50) ranges.push("50% - 75%");
+        if (max >= 75) ranges.push("≥ 75%");
         return ranges;
       }
 
@@ -182,13 +213,13 @@ export function DataTableModal({
       const ranges = [];
 
       for (let i = 0; i < 4; i++) {
-        const rangeMin = min + (step * i);
-        const rangeMax = i === 3 ? max : min + (step * (i + 1));
+        const rangeMin = min + step * i;
+        const rangeMax = i === 3 ? max : min + step * (i + 1);
 
-        let label = '';
-        if (type === 'currency') {
+        let label = "";
+        if (type === "currency") {
           label = `${(rangeMin / 1000).toFixed(0)}k - ${(rangeMax / 1000).toFixed(0)}k €`;
-        } else if (type === 'weight') {
+        } else if (type === "weight") {
           label = `${rangeMin.toFixed(0)} - ${rangeMax.toFixed(0)} kg`;
         } else {
           label = `${rangeMin.toFixed(0)} - ${rangeMax.toFixed(0)}`;
@@ -206,7 +237,9 @@ export function DataTableModal({
       const uniqueValues = [...new Set(data.map((row) => row[col.key]))];
 
       // Check if it's a month column
-      const isMonthColumn = uniqueValues.some(v => getMonthValue(String(v)) !== -1);
+      const isMonthColumn = uniqueValues.some(
+        (v) => getMonthValue(String(v)) !== -1,
+      );
 
       if (isMonthColumn) {
         options[col.key] = uniqueValues.map(String).sort((a, b) => {
@@ -223,7 +256,9 @@ export function DataTableModal({
 
         if (numericType && uniqueValues.length >= 4) {
           // Create range filters for numeric columns with many values
-          const numericValues = uniqueValues.map(v => Number(v)).filter(v => !isNaN(v));
+          const numericValues = uniqueValues
+            .map((v) => Number(v))
+            .filter((v) => !isNaN(v));
           const ranges = createRanges(numericValues, numericType as string);
 
           if (ranges.length > 0) {
@@ -248,38 +283,42 @@ export function DataTableModal({
       // Parse range labels like "3k - 6k €", "100 - 200 kg", "< 25%", "≥ 75%"
 
       // Handle percentage ranges
-      if (rangeLabel.includes('%')) {
+      if (rangeLabel.includes("%")) {
         const numValue = Number(value);
-        if (rangeLabel.startsWith('< ')) {
-          const threshold = parseFloat(rangeLabel.replace('< ', '').replace('%', ''));
+        if (rangeLabel.startsWith("< ")) {
+          const threshold = parseFloat(
+            rangeLabel.replace("< ", "").replace("%", ""),
+          );
           return numValue < threshold;
         }
-        if (rangeLabel.startsWith('≥ ')) {
-          const threshold = parseFloat(rangeLabel.replace('≥ ', '').replace('%', ''));
+        if (rangeLabel.startsWith("≥ ")) {
+          const threshold = parseFloat(
+            rangeLabel.replace("≥ ", "").replace("%", ""),
+          );
           return numValue >= threshold;
         }
         // Range like "25% - 50%"
-        const parts = rangeLabel.split(' - ');
+        const parts = rangeLabel.split(" - ");
         if (parts.length === 2) {
-          const min = parseFloat(parts[0].replace('%', ''));
-          const max = parseFloat(parts[1].replace('%', ''));
+          const min = parseFloat(parts[0].replace("%", ""));
+          const max = parseFloat(parts[1].replace("%", ""));
           return numValue >= min && numValue < max;
         }
       }
 
       // Handle currency ranges like "3k - 6k €"
-      if (rangeLabel.includes('k')) {
+      if (rangeLabel.includes("€")) {
         const numValue = Number(value);
-        const parts = rangeLabel.replace(' €', '').split(' - ');
+        const parts = rangeLabel.replace(" €", "").split(" - ");
         if (parts.length === 2) {
-          const min = parseFloat(parts[0].replace('k', '')) * 1000;
-          const max = parseFloat(parts[1].replace('k', '')) * 1000;
+          const min = parseFloat(parts[0].replace("k", "")) * 1000;
+          const max = parseFloat(parts[1].replace("k", "")) * 1000;
           return numValue >= min && numValue < max;
         }
       }
 
       // Handle weight/number ranges like "100 - 200 kg" or "100 - 200"
-      const parts = rangeLabel.replace(' kg', '').split(' - ');
+      const parts = rangeLabel.replace(" kg", "").split(" - ");
       if (parts.length === 2) {
         const numValue = Number(value);
         const min = parseFloat(parts[0]);
@@ -307,7 +346,7 @@ export function DataTableModal({
           const rowValue = row[key];
 
           // Try range matching first
-          if (typeof rowValue === 'number' || !isNaN(Number(rowValue))) {
+          if (typeof rowValue === "number" || !isNaN(Number(rowValue))) {
             if (isValueInRange(Number(rowValue), filterValue)) {
               continue; // Match found, check next filter
             }
@@ -324,9 +363,10 @@ export function DataTableModal({
     });
   }, [data, searchTerm, columnFilters, columns]);
 
-  const activeFiltersCount = Object.values(columnFilters).filter(
-    (v) => v && v !== "all"
-  ).length + (searchTerm ? 1 : 0) + (clientId ? 1 : 0);
+  const activeFiltersCount =
+    Object.values(columnFilters).filter((v) => v && v !== "all").length +
+    (searchTerm ? 1 : 0) +
+    (clientId ? 1 : 0);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -359,10 +399,7 @@ export function DataTableModal({
             {/* Client Filter */}
             {onClientChange && (
               <div className="mr-2">
-                <ClientComboBox
-                  value={clientId}
-                  onChange={onClientChange}
-                />
+                <ClientComboBox value={clientId} onChange={onClientChange} />
               </div>
             )}
 
@@ -384,16 +421,18 @@ export function DataTableModal({
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
                 "gap-1.5",
-                showFilters && variantButtonStyles[variant]
+                showFilters && variantButtonStyles[variant],
               )}
             >
               <Filter className="h-4 w-4" />
               Filtres
               {activeFiltersCount > 0 && (
-                <span className={cn(
-                  "ml-1 px-1.5 py-0.5 text-xs rounded-full",
-                  variantButtonStyles[variant]
-                )}>
+                <span
+                  className={cn(
+                    "ml-1 px-1.5 py-0.5 text-xs rounded-full",
+                    variantButtonStyles[variant],
+                  )}
+                >
                   {activeFiltersCount}
                 </span>
               )}
@@ -435,9 +474,7 @@ export function DataTableModal({
                         <SelectValue placeholder={col.label} />
                       </SelectTrigger>
                       <SelectContent className="bg-popover z-50">
-                        <SelectItem value="all">
-                          Tous ({col.label})
-                        </SelectItem>
+                        <SelectItem value="all">Tous ({col.label})</SelectItem>
                         {options.map((option) => (
                           <SelectItem key={option} value={option}>
                             {option}
@@ -495,7 +532,9 @@ export function DataTableModal({
                   <TableRow key={index} className="hover:bg-muted/50">
                     {columns.map((col) => (
                       <TableCell key={col.key}>
-                        {col.format ? col.format(Number(row[col.key])) : row[col.key]}
+                        {col.format
+                          ? col.format(Number(row[col.key]))
+                          : row[col.key]}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -508,6 +547,3 @@ export function DataTableModal({
     </Dialog>
   );
 }
-
-
-
