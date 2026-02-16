@@ -27,6 +27,7 @@ import { useViewFilters, useComparisonHelpers } from "@/hooks";
 import {
   transformDistributionData,
   transformEvolutionData,
+  groupDistributionData,
 } from "@/lib/dashboard-utils";
 import { DataTableModal } from "../modals/DataTableModal";
 import { Switch } from "@/components/ui/switch";
@@ -153,17 +154,16 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   // Transform Distribution Data
   const formatData = useMemo(() => {
     if (!distribution) return [];
-    return (
-      Object.entries(distribution)
-        .map(([key, item]: [string, DistributionItem]) => ({
-          name: item.poid_unit ? formatWeight(Number(item.poid_unit)) : key,
-          ca: item.ca_total_ht,
-          volume: item.poids_total,
-          part: Number(item.percentage_kg) || 0,
-        }))
-        // .filter((item) => item.part >= 1)
-        .sort((a, b) => b.part - a.part)
-    );
+    const baseData = Object.entries(distribution)
+      .map(([key, item]: [string, DistributionItem]) => ({
+        name: item.poid_unit ? formatWeight(Number(item.poid_unit)) : key,
+        ca: item.ca_total_ht,
+        volume: item.poids_total,
+        part: Number(item.percentage_kg) || 0,
+      }))
+      .sort((a, b) => b.part - a.part);
+
+    return groupDistributionData(baseData, 5);
   }, [distribution]);
 
   // Transform Evolution Data for Chart

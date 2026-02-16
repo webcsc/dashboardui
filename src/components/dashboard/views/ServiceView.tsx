@@ -1,13 +1,7 @@
 import { useModalState } from "@/hooks/useModalState";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { useMemo } from "react";
-import {
-  Wrench,
-  Package,
-  RefreshCw,
-  ArrowRightLeft,
-  Settings,
-} from "lucide-react";
+import { Wrench, RefreshCw, ArrowRightLeft, Settings } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -27,33 +21,26 @@ import {
   useOverview,
   useEvolution,
   useDistribution,
+  useProducts,
 } from "@/hooks/useDashboardData";
 import { useViewFilters, useComparisonHelpers } from "@/hooks";
 import { DataTableModal } from "../modals/DataTableModal";
-import { ProductCategorySection } from "../sections/ProductCategorySection";
 import {
   transformServiceDistribution,
   transformServiceEvolution,
+  groupDistributionData,
 } from "@/lib/dashboard-utils";
 import { useState, useEffect } from "react";
 import { formatPrice } from "@/lib";
 import { ServiceMonthData } from "@/services/dashboard-api";
 import { UniverseViewSkeleton } from "../skeletons";
+import { EquipementProductMap } from "@/types/products";
+import { renderServiceProductView } from "@/lib/service-product-view-helpers";
 
 interface ServiceViewProps {
   filters: FilterState;
   isComparing: boolean;
 }
-
-// KPIs globaux service
-const serviceOverview = {
-  caTotal: 142000,
-  installation: 35000,
-  reparation: 52000,
-  cartouche: 28000,
-  pret: 15000,
-  echange: 12000,
-};
 
 // Évolution mensuelle
 const evolutionMensuelleData = [
@@ -115,61 +102,6 @@ const COLORS = [
   "hsl(280, 25%, 80%)",
 ];
 
-// Installation
-const installationData = [
-  {
-    type: "Installation standard",
-    ca: 18500,
-    interventions: 125,
-    prixMoyen: 148,
-  },
-  {
-    type: "Installation complexe",
-    ca: 12200,
-    interventions: 42,
-    prixMoyen: 290,
-  },
-  { type: "Raccordement eau", ca: 4300, interventions: 58, prixMoyen: 74 },
-];
-
-// Réparation
-const reparationSousAssistanceData = [
-  { marque: "Jura", ca: 12500, interventions: 85, part: "38%" },
-  { marque: "De'Longhi", ca: 9200, interventions: 72, part: "28%" },
-  { marque: "Saeco", ca: 6800, interventions: 48, part: "21%" },
-  { marque: "Autres", ca: 4500, interventions: 35, part: "14%" },
-];
-
-const reparationHorsAssistanceData = [
-  { marque: "Jura", ca: 8500, interventions: 45, prixMoyen: 189 },
-  { marque: "De'Longhi", ca: 5800, interventions: 38, prixMoyen: 153 },
-  { marque: "Saeco", ca: 3200, interventions: 22, prixMoyen: 145 },
-  { marque: "Autres", ca: 1500, interventions: 12, prixMoyen: 125 },
-];
-
-// Changement cartouche
-const cartoucheData = [
-  { marque: "Jura", ca: 12500, interventions: 185, part: "45%" },
-  { marque: "De'Longhi", ca: 8200, interventions: 125, part: "29%" },
-  { marque: "Saeco", ca: 4800, interventions: 72, part: "17%" },
-  { marque: "Autres", ca: 2500, interventions: 38, part: "9%" },
-];
-
-// Prêt machine
-const pretMachineData = [
-  { type: "Prêt court (<7j)", ca: 8500, prets: 125, duréeMoy: "4 jours" },
-  { type: "Prêt moyen (7-30j)", ca: 4800, prets: 42, duréeMoy: "18 jours" },
-  { type: "Prêt long (>30j)", ca: 1700, prets: 8, duréeMoy: "52 jours" },
-];
-
-// Échange standard
-const echangeStandardData = [
-  { marque: "Jura", ca: 5800, echanges: 28, part: "48%" },
-  { marque: "De'Longhi", ca: 3500, echanges: 22, part: "29%" },
-  { marque: "Saeco", ca: 1800, echanges: 12, part: "15%" },
-  { marque: "Autres", ca: 900, echanges: 6, part: "8%" },
-];
-
 export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const { openModals, openModal, closeModal, isAnyOpen } = useModalState([
     "caTotal",
@@ -194,7 +126,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
     filters,
     modalClientId,
   );
-  const { getTrend, getPreviousValue, getPreviousCurrencyValue } =
+  const { getTrend, getPreviousCurrencyValue } =
     useComparisonHelpers(isComparing);
 
   // Fetch API Data
@@ -225,6 +157,17 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
     data: modalDistributionResponse,
     isFetching: isFetchingModalDistribution,
   } = useDistribution("service", modalFilters, { enabled: isAnyOpen });
+  const { data: productsResponse } = useProducts<EquipementProductMap>(
+    "service",
+    filters,
+  );
+  const { data: compareProductsResponse } = useProducts<EquipementProductMap>(
+    "service",
+    comparisonFilters,
+    {
+      enabled: isComparing && !!filters.comparePeriod,
+    },
+  );
 
   const modalOverview = modalOverviewResponse?.data;
   const modalEvolution = modalEvolutionResponse?.data;
@@ -242,10 +185,12 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const compareOverview = compareOverviewResponse?.data;
   const evolution = evolutionResponse?.data;
   const distribution = distributionResponse?.distribution;
+  const products = productsResponse?.products;
+  const compareProducts = compareProductsResponse?.products;
 
   // Transform Distribution Data
   const repartitionData = useMemo(
-    () => transformServiceDistribution(distribution),
+    () => groupDistributionData(transformServiceDistribution(distribution), 5),
     [distribution],
   );
   const modalRepartitionData = useMemo(
@@ -303,6 +248,17 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
       />
     ));
   };
+  function renderProductView() {
+    return renderServiceProductView({
+      isComparing,
+      products,
+      compareProducts,
+      getTrend,
+      clientId: modalClientId,
+      onClientChange: setModalClientId,
+      filters,
+    });
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -533,139 +489,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
           </ResponsiveContainer>
         </div>
       </div>
-
-      {/* Installation */}
-      <ProductCategorySection
-        title="Installation"
-        icon={<Settings className="h-5 w-5 text-universe-service" />}
-        columns={[
-          { key: "type", label: "Type" },
-          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
-          { key: "interventions", label: "Interventions" },
-          {
-            key: "prixMoyen",
-            label: "Prix moy.",
-            format: (v) => formatPrice(v || 0),
-          },
-        ]}
-        data={installationData}
-        variant="service"
-      />
-
-      {/* Réparation */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold flex items-center gap-2">
-          <Wrench className="h-5 w-5 text-universe-service" />
-          Réparation
-        </h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ProductCategorySection
-            title="Sous Assistance"
-            columns={[
-              { key: "marque", label: "Marque", width: "w-[40%]" },
-              {
-                key: "ca",
-                label: "CA",
-                format: (v) => formatPrice(v || 0),
-                width: "w-[20%]",
-              },
-              {
-                key: "interventions",
-                label: "Interventions",
-                width: "w-[20%]",
-              },
-              { key: "part", label: "Part", width: "w-[20%]" },
-            ]}
-            data={reparationSousAssistanceData}
-            variant="service"
-            compact
-          />
-          <ProductCategorySection
-            title="Hors Assistance"
-            columns={[
-              { key: "marque", label: "Marque", width: "w-[40%]" },
-              {
-                key: "ca",
-                label: "CA",
-                format: (v) => formatPrice(v || 0),
-                width: "w-[20%]",
-              },
-              {
-                key: "interventions",
-                label: "Interventions",
-                width: "w-[20%]",
-              },
-              {
-                key: "prixMoyen",
-                label: "Prix moy.",
-                format: (v) => formatPrice(v || 0),
-                width: "w-[20%]",
-              },
-            ]}
-            data={reparationHorsAssistanceData}
-            variant="service"
-            compact
-          />
-        </div>
-      </div>
-
-      {/* Changement cartouche */}
-      <ProductCategorySection
-        title="Changement Cartouche"
-        icon={<RefreshCw className="h-5 w-5 text-universe-service" />}
-        columns={[
-          { key: "marque", label: "Marque", width: "w-[40%]" },
-          {
-            key: "ca",
-            label: "CA",
-            format: (v) => formatPrice(v || 0),
-            width: "w-[20%]",
-          },
-          { key: "interventions", label: "Interventions", width: "w-[20%]" },
-          { key: "part", label: "Part", width: "w-[20%]" },
-        ]}
-        data={cartoucheData}
-        variant="service"
-      />
-
-      {/* Prêt de machine */}
-      <ProductCategorySection
-        title="Prêt de Machine"
-        icon={<Package className="h-5 w-5 text-universe-service" />}
-        columns={[
-          { key: "type", label: "Type", width: "w-[40%]" },
-          {
-            key: "ca",
-            label: "CA",
-            format: (v) => formatPrice(v || 0),
-            width: "w-[20%]",
-          },
-          { key: "prets", label: "Prêts", width: "w-[20%]" },
-          { key: "duréeMoy", label: "Durée moy.", width: "w-[20%]" },
-        ]}
-        data={pretMachineData}
-        variant="service"
-        isLoading={isFetchingModalDistribution}
-      />
-
-      {/* Échange standard */}
-      <ProductCategorySection
-        title="Échange Standard"
-        icon={<ArrowRightLeft className="h-5 w-5 text-universe-service" />}
-        columns={[
-          { key: "marque", label: "Marque", width: "w-[40%]" },
-          {
-            key: "ca",
-            label: "CA",
-            format: (v) => formatPrice(v || 0),
-            width: "w-[20%]",
-          },
-          { key: "echanges", label: "Échanges", width: "w-[20%]" },
-          { key: "part", label: "Part", width: "w-[20%]" },
-        ]}
-        data={echangeStandardData}
-        variant="service"
-      />
+      {renderProductView()}
 
       {/* Modals */}
       <DataTableModal
@@ -719,51 +543,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
         variant="service"
         isLoading={isFetchingModalDistribution}
       />
-      <DataTableModal
-        open={openModals.installation || false}
-        onOpenChange={() => closeModal("installation")}
-        title="Détail installations"
-        clientId={modalClientId}
-        onClientChange={setModalClientId}
-        columns={[
-          { key: "type", label: "Type" },
-          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
-          { key: "interventions", label: "Interventions" },
-        ]}
-        data={installationData}
-        variant="service"
-        isLoading={isFetchingModalDistribution}
-      />
-      <DataTableModal
-        open={openModals.reparation || false}
-        onOpenChange={() => closeModal("reparation")}
-        title="Réparations par marque"
-        clientId={modalClientId}
-        onClientChange={setModalClientId}
-        columns={[
-          { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
-          { key: "interventions", label: "Interventions" },
-        ]}
-        data={reparationSousAssistanceData}
-        variant="service"
-        isLoading={isFetchingModalDistribution}
-      />
-      <DataTableModal
-        open={openModals.cartouche || false}
-        onOpenChange={() => closeModal("cartouche")}
-        title="Cartouches par marque"
-        clientId={modalClientId}
-        onClientChange={setModalClientId}
-        columns={[
-          { key: "marque", label: "Marque" },
-          { key: "ca", label: "CA", format: (v) => formatPrice(v || 0) },
-          { key: "interventions", label: "Interventions" },
-        ]}
-        data={cartoucheData}
-        variant="service"
-        isLoading={isFetchingModalDistribution}
-      />
+
       <DataTableModal
         open={openModals.pretEchange || false}
         onOpenChange={() => closeModal("pretEchange")}

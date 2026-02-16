@@ -35,8 +35,6 @@ interface EquipementViewProps {
   isComparing: boolean;
 }
 
-// Accessoires vente
-
 export function EquipementView({ filters, isComparing }: EquipementViewProps) {
   const { openModals, openModal, closeModal, isAnyOpen } = useModalState([
     "caTotal",
@@ -211,7 +209,6 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             )}
             icon={<Settings className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            // onClick={() => openModal('location')}
           />
           <BaseKpiCard
             label="Vente Machines"
@@ -225,7 +222,6 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             )}
             icon={<ShoppingCart className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            // onClick={() => openModal('vente')}
           />
           <BaseKpiCard
             label="Assistance Premium"
@@ -239,7 +235,6 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             )}
             icon={<Shield className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            // onClick={() => openModal('assistance')}
           />
           <BaseKpiCard
             label="Produits Entretien"
@@ -253,7 +248,6 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
             )}
             icon={<Droplets className="h-5 w-5 text-universe-equipement" />}
             showComparison={isComparing}
-            // onClick={() => openModal('entretien')}
           />
         </div>
       </div>

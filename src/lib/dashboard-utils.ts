@@ -1,16 +1,28 @@
-
-import { DistributionItem, DistributionResponse, EquipementMonthData, EvolutionResponse, ServiceMonthData } from "@/services/dashboard-api";
-import { KG_THRESHOLD, GRAMS_PER_KG, MONTH_ORDER, DEFAULT_EVOLUTION_MONTHS, EQUIPEMENT_UNIVERSE_MAPPING, FRENCH_MONTHS } from "./dashboard-constants";
+import {
+  DistributionItem,
+  DistributionResponse,
+  EquipementMonthData,
+  EvolutionResponse,
+  ServiceMonthData,
+} from "@/services/dashboard-api";
+import {
+  KG_THRESHOLD,
+  GRAMS_PER_KG,
+  MONTH_ORDER,
+  DEFAULT_EVOLUTION_MONTHS,
+  EQUIPEMENT_UNIVERSE_MAPPING,
+  FRENCH_MONTHS,
+} from "./dashboard-constants";
 
 /**
  * Transforms distribution data for pie chart and table display
- * 
+ *
  * Converts raw distribution API data into a format suitable for visualization,
  * with proper unit formatting (kg/g) and sorting by percentage.
- * 
+ *
  * @param distribution - Raw distribution data from the API
  * @returns Array of formatted distribution items sorted by percentage (descending)
- * 
+ *
  * @example
  * ```ts
  * const data = transformDistributionData(apiResponse.distribution);
@@ -21,37 +33,86 @@ import { KG_THRESHOLD, GRAMS_PER_KG, MONTH_ORDER, DEFAULT_EVOLUTION_MONTHS, EQUI
  * // ]
  * ```
  */
-export const transformDistributionData = (distribution: DistributionResponse['distribution'] | undefined) => {
-    if (!distribution) return [];
+export const transformDistributionData = (
+  distribution: DistributionResponse["distribution"] | undefined,
+) => {
+  if (!distribution) return [];
 
-    return Object.entries(distribution)
-        .map(([key, item]: [string, DistributionItem]) => ({
-            name: item.poid_unit
-                ? Number(item.poid_unit) >= KG_THRESHOLD
-                    ? `${item.poid_unit} kg`
-                    : `${(parseFloat(item.poid_unit) * GRAMS_PER_KG).toFixed(0)} g`
-                : key,
-            ca: item.ca_total_ht,
-            volume: item.poids_total,
-            part: Number(item.percentage_kg) || 0,
-            // Keep raw values if needed
-            raw_poid_unit: item.poid_unit,
-        }))
-        .sort((a, b) => b.part - a.part);
+  return Object.entries(distribution)
+    .map(([key, item]: [string, DistributionItem]) => ({
+      name: item.poid_unit
+        ? Number(item.poid_unit) >= KG_THRESHOLD
+          ? `${item.poid_unit} kg`
+          : `${(parseFloat(item.poid_unit) * GRAMS_PER_KG).toFixed(0)} g`
+        : key,
+      ca: item.ca_total_ht,
+      volume: item.poids_total,
+      part: Number(item.percentage_kg) || 0,
+      // Keep raw values if needed
+      raw_poid_unit: item.poid_unit,
+    }))
+    .sort((a, b) => b.part - a.part);
+};
+
+/**
+ * Groups distribution items below a certain threshold into a single 'Moins de X%' category.
+ * Useful for cleaning up pie charts with many small slices.
+ */
+export const groupDistributionData = <
+  T extends {
+    name: string;
+    part?: number;
+    value?: number;
+    ca?: number;
+    volume?: number;
+  },
+>(
+  data: T[],
+  threshold = 5,
+): T[] => {
+  const mainItems = data.filter(
+    (item) => (item.part ?? item.value ?? 0) >= threshold,
+  );
+  const smallItems = data.filter(
+    (item) => (item.part ?? item.value ?? 0) < threshold,
+  );
+
+  if (smallItems.length === 0) return data;
+
+  const sumPart = smallItems.reduce(
+    (acc, item) => acc + (item.part ?? item.value ?? 0),
+    0,
+  );
+  const sumCa = smallItems.reduce((acc, item) => acc + (item.ca ?? 0), 0);
+  const sumVolume = smallItems.reduce(
+    (acc, item) => acc + (item.volume ?? 0),
+    0,
+  );
+
+  const groupedItem = {
+    name: `Moins de ${threshold}%`,
+    ca: sumCa,
+    volume: sumVolume,
+    part: Number(sumPart.toFixed(1)),
+    value: Number(sumPart.toFixed(1)),
+    isGrouped: true,
+  } as unknown as T;
+
+  return [...mainItems, groupedItem];
 };
 
 /**
  * Transforms evolution data for bar chart and table display
- * 
+ *
  * Handles both nested (year → month → data) and flat (month → data) structures.
  * Automatically sorts data chronologically and applies year labels when needed.
  * Implements 12-month rolling window for consistent visualization.
- * 
+ *
  * @param evolution - Raw evolution data from the API
  * @param currentYear - Current year for comparison (determines when to show year labels)
  * @param maxMonths - Maximum number of months to return (default: 12, creates rolling window)
  * @returns Array of formatted evolution items sorted chronologically
- * 
+ *
  * @example
  * ```ts
  * // Multi-year data
@@ -62,7 +123,7 @@ export const transformDistributionData = (distribution: DistributionResponse['di
  * //   ...
  * //   { mois: "Feb 2026", ca: 15000, volume: 750, part_b2b: 78.1 }
  * // ]
- * 
+ *
  * // Single year data
  * const data = transformEvolutionData(apiResponse.data, "2026");
  * // Returns: [{ mois: "Jan", ca: 10000, volume: 500, ... }, ...]
@@ -70,87 +131,92 @@ export const transformDistributionData = (distribution: DistributionResponse['di
  */
 /**
  * Transforms evolution data for bar chart and table display (Cafe Universe)
- * 
+ *
  * Handles nested structure: Year -> Month -> Cafe Object
  * Structure: { "2026": { "January": { "cafe": { ... } } } }
- * 
+ *
  * @param evolution - Raw evolution data from the API
  * @param currentYear - Current year for comparison (determines when to show year labels)
  * @param maxMonths - Maximum number of months to return (default: 12, creates rolling window)
  * @returns Array of formatted evolution items sorted chronologically
  */
 export const transformEvolutionData = <T>(
-    evolution: EvolutionResponse<T>['data'] | undefined,
-    currentYear: string,
-    maxMonths?: number,
-    includeFuture: boolean = false,
-    period?: { start: Date; end: Date }
+  evolution: EvolutionResponse<T>["data"] | undefined,
+  currentYear: string,
+  maxMonths?: number,
+  includeFuture: boolean = false,
+  period?: { start: Date; end: Date },
 ) => {
-    if (!evolution) return [];
+  if (!evolution) return [];
 
-    // Filter out 'total' key and ensure we only process year keys
-    const yearKeys = Object.keys(evolution).filter(key => key !== 'total' && /^\d{4}$/.test(key)).sort();
+  // Filter out 'total' key and ensure we only process year keys
+  const yearKeys = Object.keys(evolution)
+    .filter((key) => key !== "total" && /^\d{4}$/.test(key))
+    .sort();
 
-    if (includeFuture && !yearKeys.includes(currentYear)) {
-        yearKeys.push(currentYear);
-        yearKeys.sort();
-    }
+  if (includeFuture && !yearKeys.includes(currentYear)) {
+    yearKeys.push(currentYear);
+    yearKeys.sort();
+  }
 
-    const isMoreAYear = yearKeys.length > 1 || yearKeys.some(y => y !== currentYear);
+  const isMoreAYear =
+    yearKeys.length > 1 || yearKeys.some((y) => y !== currentYear);
 
-    const allData = yearKeys.flatMap(year => {
-        const yearData = evolution[year];
+  const allData = yearKeys.flatMap((year) => {
+    const yearData = evolution[year];
 
-        return MONTH_ORDER.map(month => {
-            const cafeData = yearData?.[month]?.cafe;
-            const monthIndex = MONTH_ORDER.indexOf(month); // 0-11
+    return MONTH_ORDER.map((month) => {
+      const cafeData = yearData?.[month]?.cafe;
+      const monthIndex = MONTH_ORDER.indexOf(month); // 0-11
 
-            // Check if this month is within the selected period
-            let isActif = 1;
-            if (period) {
-                const itemDate = new Date(parseInt(year), monthIndex, 15); // Use 15th to avoid timezone issues
-                // Reset hours to compare dates only
-                const start = new Date(period.start); start.setHours(0, 0, 0, 0);
-                const end = new Date(period.end); end.setHours(23, 59, 59, 999);
-                // Also set itemDate hours to noon
-                itemDate.setHours(12, 0, 0, 0);
+      // Check if this month is within the selected period
+      let isActif = 1;
+      if (period) {
+        const itemDate = new Date(parseInt(year), monthIndex, 15); // Use 15th to avoid timezone issues
+        // Reset hours to compare dates only
+        const start = new Date(period.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(period.end);
+        end.setHours(23, 59, 59, 999);
+        // Also set itemDate hours to noon
+        itemDate.setHours(12, 0, 0, 0);
 
-                // Compare Year and Month
-                const itemTime = itemDate.getFullYear() * 12 + itemDate.getMonth();
-                const startTime = start.getFullYear() * 12 + start.getMonth();
-                const endTime = end.getFullYear() * 12 + end.getMonth();
+        // Compare Year and Month
+        const itemTime = itemDate.getFullYear() * 12 + itemDate.getMonth();
+        const startTime = start.getFullYear() * 12 + start.getMonth();
+        const endTime = end.getFullYear() * 12 + end.getMonth();
 
-                isActif = (itemTime >= startTime && itemTime <= endTime) ? 1 : 0;
-            }
+        isActif = itemTime >= startTime && itemTime <= endTime ? 1 : 0;
+      }
 
-            if (!cafeData) {
-                if (includeFuture && year === currentYear) {
-                    return {
-                        mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? ' ' + year : ''}`,
-                        ca: 0,
-                        volume: 0,
-                        part_b2b: 0,
-                        actif: 0, // Future/Empty is always 0
-                        year: year,
-                        monthIndex: monthIndex
-                    };
-                }
-                return null;
-            }
+      if (!cafeData) {
+        if (includeFuture && year === currentYear) {
+          return {
+            mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
+            ca: 0,
+            volume: 0,
+            part_b2b: 0,
+            actif: 0, // Future/Empty is always 0
+            year: year,
+            monthIndex: monthIndex,
+          };
+        }
+        return null;
+      }
 
-            return {
-                mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? ' ' + year : ''}`,
-                ca: cafeData.ca_total_ht,
-                volume: cafeData.volume_total,
-                part_b2b: cafeData.part_b2b || 0,
-                actif: isActif,
-                year: year,
-                monthIndex: monthIndex
-            };
-        }).filter((item): item is NonNullable<typeof item> => item !== null);
-    });
+      return {
+        mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
+        ca: cafeData.ca_total_ht,
+        volume: cafeData.volume_total,
+        part_b2b: cafeData.part_b2b || 0,
+        actif: isActif,
+        year: year,
+        monthIndex: monthIndex,
+      };
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+  });
 
-    return filterLastMonthsData(allData, maxMonths, includeFuture);
+  return filterLastMonthsData(allData, maxMonths, includeFuture);
 };
 
 /**
@@ -159,12 +225,12 @@ export const transformEvolutionData = <T>(
 
 /**
  * Transforms Service distribution data for pie chart display
- * 
+ *
  * Formats service universe distribution data with proper naming and sorting.
- * 
+ *
  * @param distribution - Raw distribution data from the Service API
  * @returns Array of formatted distribution items sorted by percentage (descending)
- * 
+ *
  * @example
  * ```ts
  * const data = transformServiceDistribution(apiResponse.distribution);
@@ -174,29 +240,31 @@ export const transformEvolutionData = <T>(
  * // ]
  * ```
  */
-export const transformServiceDistribution = (distribution: DistributionResponse['distribution'] | undefined) => {
-    if (!distribution) return [];
-    return Object.entries(distribution)
-        .map(([key, item]: [string, DistributionItem]) => ({
-            name: item.poid_unit || key,
-            ca: item.total_ht,
-            value: Number(item.percentage_ht) || 0,
-        }))
-        .filter((item) => item.value > 0)
-        .sort((a, b) => b.value - a.value);
+export const transformServiceDistribution = (
+  distribution: DistributionResponse["distribution"] | undefined,
+) => {
+  if (!distribution) return [];
+  return Object.entries(distribution)
+    .map(([key, item]: [string, DistributionItem]) => ({
+      name: item.poid_unit || key,
+      ca: item.total_ht,
+      value: Number(item.percentage_ht) || 0,
+    }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
 };
 
 /**
  * Transforms Service evolution data for stacked bar chart display
- * 
+ *
  * Aggregates service universe data by month, creating breakdown by service type
  * (réparation, installation, cartouche, prêt, échange).
- * 
+ *
  * @param evolution - Raw evolution data from the Service API
  * @param currentYear - Current year for comparison (determines year label display)
  * @param maxMonths - Maximum number of months to return (default: 12)
  * @returns Array of formatted evolution items with service type breakdown
- * 
+ *
  * @example
  * ```ts
  * const data = transformServiceEvolution(apiResponse.data, "2026", 12);
@@ -208,119 +276,134 @@ export const transformServiceDistribution = (distribution: DistributionResponse[
  */
 /**
  * Transforms Service evolution data for stacked bar chart display
- * 
+ *
  * Handles nested structure: Year -> Month -> Array of Service Objects
  * Structure: { "2026": { "January": [ { "universe": "installation", ... }, ... ] } }
- * 
+ *
  * @param evolution - Raw evolution data from the Service API
  * @param currentYear - Current year for comparison (determines year label display)
  * @param maxMonths - Maximum number of months to return (default: 12)
  * @returns Array of formatted evolution items with service type breakdown
  */
 export const transformServiceEvolution = (
-    evolution: EvolutionResponse<ServiceMonthData>['data'] | undefined,
-    currentYear: string,
-    maxMonths?: number,
-    includeFuture: boolean = false,
-    period?: { start: Date; end: Date }
+  evolution: EvolutionResponse<ServiceMonthData>["data"] | undefined,
+  currentYear: string,
+  maxMonths?: number,
+  includeFuture: boolean = false,
+  period?: { start: Date; end: Date },
 ) => {
-    if (!evolution) return [];
+  if (!evolution) return [];
 
-    const yearKeys = Object.keys(evolution).filter(key => key !== 'total' && /^\d{4}$/.test(key)).sort();
+  const yearKeys = Object.keys(evolution)
+    .filter((key) => key !== "total" && /^\d{4}$/.test(key))
+    .sort();
 
-    if (includeFuture && !yearKeys.includes(currentYear)) {
-        yearKeys.push(currentYear);
-        yearKeys.sort();
-    }
+  if (includeFuture && !yearKeys.includes(currentYear)) {
+    yearKeys.push(currentYear);
+    yearKeys.sort();
+  }
 
-    const isMoreAYearSvc = yearKeys.length > 1 || yearKeys.some(k => k !== currentYear);
+  const isMoreAYearSvc =
+    yearKeys.length > 1 || yearKeys.some((k) => k !== currentYear);
 
-    const allData = yearKeys.flatMap(year => {
-        const yearData: ServiceMonthData = evolution[year];
+  const allData = yearKeys.flatMap((year) => {
+    const yearData: ServiceMonthData = evolution[year];
 
-        return MONTH_ORDER.map(month => {
-            const monthItems = yearData?.[month];
-            const monthIndex = MONTH_ORDER.indexOf(month);
+    return MONTH_ORDER.map((month) => {
+      const monthItems = yearData?.[month];
+      const monthIndex = MONTH_ORDER.indexOf(month);
 
-            // Check if this month is within the selected period
-            let isActif = 1;
-            if (period) {
-                const start = new Date(period.start); start.setHours(0, 0, 0, 0);
-                const end = new Date(period.end); end.setHours(23, 59, 59, 999);
+      // Check if this month is within the selected period
+      let isActif = 1;
+      if (period) {
+        const start = new Date(period.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(period.end);
+        end.setHours(23, 59, 59, 999);
 
-                // Compare Year and Month
-                const itemTime = parseInt(year) * 12 + monthIndex;
-                const startTime = start.getFullYear() * 12 + start.getMonth();
-                const endTime = end.getFullYear() * 12 + end.getMonth();
+        // Compare Year and Month
+        const itemTime = parseInt(year) * 12 + monthIndex;
+        const startTime = start.getFullYear() * 12 + start.getMonth();
+        const endTime = end.getFullYear() * 12 + end.getMonth();
 
-                isActif = (itemTime >= startTime && itemTime <= endTime) ? 1 : 0;
-            }
+        isActif = itemTime >= startTime && itemTime <= endTime ? 1 : 0;
+      }
 
-            if (!monthItems) {
-                if (includeFuture && year === currentYear) {
-                    return {
-                        mois: `${FRENCH_MONTHS[month]}${isMoreAYearSvc ? ' ' + year : ''}`,
-                        reparation: 0,
-                        installation: 0,
-                        cartouche: 0,
-                        pret: 0,
-                        echange: 0,
-                        total: 0,
-                        actif: 0,
-                        year: year,
-                        monthIndex: monthIndex
-                    };
-                }
-                return null;
-            }
+      if (!monthItems) {
+        if (includeFuture && year === currentYear) {
+          return {
+            mois: `${FRENCH_MONTHS[month]}${isMoreAYearSvc ? " " + year : ""}`,
+            reparation: 0,
+            installation: 0,
+            cartouche: 0,
+            pret: 0,
+            echange: 0,
+            total: 0,
+            actif: 0,
+            year: year,
+            monthIndex: monthIndex,
+          };
+        }
+        return null;
+      }
 
-            const monthData = monthItems;
-            const aggregated = {
-                mois: `${FRENCH_MONTHS[month]}${isMoreAYearSvc ? ' ' + year : ''}`,
-                reparation: 0,
-                installation: 0,
-                cartouche: 0,
-                pret: 0,
-                echange: 0,
-                total: 0,
-                actif: isActif,
-                year: year,
-                monthIndex: monthIndex
-            };
+      const monthData = monthItems;
+      const aggregated = {
+        mois: `${FRENCH_MONTHS[month]}${isMoreAYearSvc ? " " + year : ""}`,
+        reparation: 0,
+        installation: 0,
+        cartouche: 0,
+        pret: 0,
+        echange: 0,
+        total: 0,
+        actif: isActif,
+        year: year,
+        monthIndex: monthIndex,
+      };
 
-            const addTo = (key: keyof typeof aggregated, amount: number) => {
-                if (typeof aggregated[key] === 'number') {
-                    (aggregated[key] as number) += amount;
-                }
-            };
+      const addTo = (key: keyof typeof aggregated, amount: number) => {
+        if (typeof aggregated[key] === "number") {
+          (aggregated[key] as number) += amount;
+        }
+      };
 
-            Object.entries(monthData).forEach(([serviceType, data]) => {
-                const amount = data.ca_total_ht || 0;
-                aggregated.total += amount;
+      Object.entries(monthData).forEach(([serviceType, data]) => {
+        const amount = data.ca_total_ht || 0;
+        aggregated.total += amount;
 
-                switch (serviceType.toLowerCase()) {
-                    case 'reparation': addTo('reparation', amount); break;
-                    case 'installation': addTo('installation', amount); break;
-                    case 'cartouche': addTo('cartouche', amount); break;
-                    case 'pret': addTo('pret', amount); break;
-                    case 'echange': addTo('echange', amount); break;
-                }
-            });
-            return aggregated;
-        }).filter((item): item is NonNullable<typeof item> => item !== null);
-    });
+        switch (serviceType.toLowerCase()) {
+          case "reparation":
+            addTo("reparation", amount);
+            break;
+          case "installation":
+            addTo("installation", amount);
+            break;
+          case "cartouche":
+            addTo("cartouche", amount);
+            break;
+          case "pret":
+            addTo("pret", amount);
+            break;
+          case "echange":
+            addTo("echange", amount);
+            break;
+        }
+      });
+      return aggregated;
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+  });
 
-    return filterLastMonthsData(allData, maxMonths, includeFuture);
+  return filterLastMonthsData(allData, maxMonths, includeFuture);
 };
 
 /**
  * Transforms Equipement distribution data for pie chart display
- * 
+ *
  * Formats equipment universe distribution data with proper naming and sorting.
- * 
+ *
  * @param distribution - Raw distribution data from the Equipement API
  * @returns Array of formatted distribution items sorted by percentage (descending)
- * 
+ *
  * @example
  * ```ts
  * const data = transformEquipementDistribution(apiResponse.distribution);
@@ -330,29 +413,32 @@ export const transformServiceEvolution = (
  * // ]
  * ```
  */
-export const transformEquipementDistribution = (distribution: DistributionResponse['distribution'] | undefined) => {
-    if (!distribution) return [];
-    return Object.entries(distribution)
-        .map(([key, item]) => ({
-            name: item.poid_unit || key,
-            ca: item.total_ht,
-            value: parseFloat(item.percentage_ht?.toLocaleString('fr-FR') || '0') || 0,
-        }))
-        .filter((item) => item.value >= 1)
-        .sort((a, b) => b.value - a.value);
+export const transformEquipementDistribution = (
+  distribution: DistributionResponse["distribution"] | undefined,
+) => {
+  if (!distribution) return [];
+  return Object.entries(distribution)
+    .map(([key, item]) => ({
+      name: item.poid_unit || key,
+      ca: item.total_ht,
+      value:
+        parseFloat(item.percentage_ht?.toLocaleString("fr-FR") || "0") || 0,
+    }))
+    .filter((item) => item.value >= 1)
+    .sort((a, b) => b.value - a.value);
 };
 
 /**
  * Transforms Equipement evolution data for stacked bar chart display
- * 
+ *
  * Aggregates equipment universe data by month, creating breakdown by equipment type
  * (vente, location, assistance, entretien) using predefined universe mappings.
- * 
+ *
  * @param evolution - Raw evolution data from the Equipement API
  * @param currentYear - Current year for comparison (determines year label display)
  * @param maxMonths - Maximum number of months to return (default: 12)
  * @returns Array of formatted evolution items with equipment type breakdown
- * 
+ *
  * @example
  * ```ts
  * const data = transformEquipementEvolution(apiResponse.data, "2026", 12);
@@ -364,143 +450,152 @@ export const transformEquipementDistribution = (distribution: DistributionRespon
  */
 /**
  * Transforms Equipement evolution data for stacked bar chart display
- * 
+ *
  * Handles nested structure: Year -> Month -> { [Category]: Data }
  * Structure: { "2026": { "January": { "MACHINES": { ... }, "LOCATION MACHINES": { ... } } } }
- * 
+ *
  * @param evolution - Raw evolution data from the API
  * @param currentYear - Current year for comparison (determines year label display)
  * @param maxMonths - Maximum number of months to return (default: 12)
  * @returns Array of formatted evolution items with equipment type breakdown
  */
 export const transformEquipementEvolution = (
-    evolution: EvolutionResponse<EquipementMonthData>['data'] | undefined,
-    currentYear: string,
-    maxMonths?: number,
-    includeFuture: boolean = false,
-    period?: { start: Date; end: Date }
+  evolution: EvolutionResponse<EquipementMonthData>["data"] | undefined,
+  currentYear: string,
+  maxMonths?: number,
+  includeFuture: boolean = false,
+  period?: { start: Date; end: Date },
 ) => {
-    if (!evolution) return [];
+  if (!evolution) return [];
 
-    const yearKeys = Object.keys(evolution).filter(key => key !== 'total' && /^\d{4}$/.test(key)).sort();
+  const yearKeys = Object.keys(evolution)
+    .filter((key) => key !== "total" && /^\d{4}$/.test(key))
+    .sort();
 
-    if (includeFuture && !yearKeys.includes(currentYear)) {
-        yearKeys.push(currentYear);
-        yearKeys.sort();
-    }
+  if (includeFuture && !yearKeys.includes(currentYear)) {
+    yearKeys.push(currentYear);
+    yearKeys.sort();
+  }
 
-    const isMoreAYear = yearKeys.length > 1 || yearKeys.some(y => y !== currentYear);
+  const isMoreAYear =
+    yearKeys.length > 1 || yearKeys.some((y) => y !== currentYear);
 
-    // Flatten all data
-    const allData = yearKeys.flatMap(year => {
-        const yearData = evolution[year];
+  // Flatten all data
+  const allData = yearKeys.flatMap((year) => {
+    const yearData = evolution[year];
 
-        return MONTH_ORDER.map(month => {
-            const monthItems: EquipementMonthData = yearData?.[month];
-            const monthIndex = MONTH_ORDER.indexOf(month);
+    return MONTH_ORDER.map((month) => {
+      const monthItems: EquipementMonthData = yearData?.[month];
+      const monthIndex = MONTH_ORDER.indexOf(month);
 
-            // Check if this month is within the selected period
-            let isActif = 1;
-            if (period) {
-                const start = new Date(period.start); start.setHours(0, 0, 0, 0);
-                const end = new Date(period.end); end.setHours(23, 59, 59, 999);
+      // Check if this month is within the selected period
+      let isActif = 1;
+      if (period) {
+        const start = new Date(period.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(period.end);
+        end.setHours(23, 59, 59, 999);
 
-                // Compare Year and Month
-                const itemTime = parseInt(year) * 12 + monthIndex;
-                const startTime = start.getFullYear() * 12 + start.getMonth();
-                const endTime = end.getFullYear() * 12 + end.getMonth();
+        // Compare Year and Month
+        const itemTime = parseInt(year) * 12 + monthIndex;
+        const startTime = start.getFullYear() * 12 + start.getMonth();
+        const endTime = end.getFullYear() * 12 + end.getMonth();
 
-                isActif = (itemTime >= startTime && itemTime <= endTime) ? 1 : 0;
-            }
+        isActif = itemTime >= startTime && itemTime <= endTime ? 1 : 0;
+      }
 
-            if (!monthItems) {
-                if (includeFuture && year === currentYear) {
-                    return {
-                        mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? ' ' + year : ''}`,
-                        location: 0,
-                        vente: 0,
-                        assistance: 0,
-                        entretien: 0,
-                        total: 0,
-                        actif: 0,
-                        year: year,
-                        monthIndex: monthIndex
-                    };
-                }
-                return null;
-            }
+      if (!monthItems) {
+        if (includeFuture && year === currentYear) {
+          return {
+            mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
+            location: 0,
+            vente: 0,
+            assistance: 0,
+            entretien: 0,
+            total: 0,
+            actif: 0,
+            year: year,
+            monthIndex: monthIndex,
+          };
+        }
+        return null;
+      }
 
-            const stats = {
-                vente: 0,
-                location: 0,
-                assistance: 0,
-                entretien: 0
-            };
+      const stats = {
+        vente: 0,
+        location: 0,
+        assistance: 0,
+        entretien: 0,
+      };
 
-            let total = 0;
+      let total = 0;
 
-            Object.entries(monthItems).forEach(([categoryKey, data]) => {
-                const mappedKey = EQUIPEMENT_UNIVERSE_MAPPING[categoryKey];
-                if (mappedKey && (mappedKey in stats)) {
-                    // Cast key to allow indexing
-                    stats[mappedKey] += data.ca_total_ht || 0;
-                }
-                total += data.ca_total_ht || 0;
-            });
+      Object.entries(monthItems).forEach(([categoryKey, data]) => {
+        const mappedKey = EQUIPEMENT_UNIVERSE_MAPPING[categoryKey];
+        if (mappedKey && mappedKey in stats) {
+          // Cast key to allow indexing
+          stats[mappedKey] += data.ca_total_ht || 0;
+        }
+        total += data.ca_total_ht || 0;
+      });
 
-            return {
-                mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? ' ' + year : ''}`,
-                location: stats.location,
-                vente: stats.vente,
-                assistance: stats.assistance,
-                entretien: stats.entretien,
-                total: total,
-                actif: isActif,
-                year: year,
-                monthIndex: monthIndex
-            };
-        }).filter((item): item is NonNullable<typeof item> => item !== null);
-    });
+      return {
+        mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
+        location: stats.location,
+        vente: stats.vente,
+        assistance: stats.assistance,
+        entretien: stats.entretien,
+        total: total,
+        actif: isActif,
+        year: year,
+        monthIndex: monthIndex,
+      };
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+  });
 
-    return filterLastMonthsData(allData, maxMonths, includeFuture);
+  return filterLastMonthsData(allData, maxMonths, includeFuture);
 };
 
 /**
  * Filters data to keep only the last N months relative to the current date.
  * Removes 'year' and 'monthIndex' from the result.
- * 
+ *
  * @param allData - List of data items containing year and monthIndex
  * @param maxMonths - Maximum number of months to return (defaults to DEFAULT_EVOLUTION_MONTHS if falsy)
  */
-export const filterLastMonthsData = <T extends { year: string; monthIndex: number }>(
-    allData: T[],
-    maxMonths?: number,
-    includeFuture: boolean = false
-): Omit<T, 'year' | 'monthIndex'>[] => {
-    // Always take the last 12 months (rolling window) OR full year if explicitly requested
-    const now = new Date();
-    const currentMonthIndex = now.getMonth();
-    const currentYearNum = now.getFullYear();
+export const filterLastMonthsData = <
+  T extends { year: string; monthIndex: number },
+>(
+  allData: T[],
+  maxMonths?: number,
+  includeFuture: boolean = false,
+): Omit<T, "year" | "monthIndex">[] => {
+  // Always take the last 12 months (rolling window) OR full year if explicitly requested
+  const now = new Date();
+  const currentMonthIndex = now.getMonth();
+  const currentYearNum = now.getFullYear();
 
-    const filteredData = allData.filter(item => {
-        const itemYear = parseInt(item.year);
-        // keep past years
-        if (itemYear < currentYearNum) return true;
+  const filteredData = allData.filter((item) => {
+    const itemYear = parseInt(item.year);
+    // keep past years
+    if (itemYear < currentYearNum) return true;
 
-        // current year: 
-        if (includeFuture) {
-            // Keep all months for the current year
-            return true;
-        }
+    // current year:
+    if (includeFuture) {
+      // Keep all months for the current year
+      return true;
+    }
 
-        // discard future years
-        if (itemYear > currentYearNum) return false;
+    // discard future years
+    if (itemYear > currentYearNum) return false;
 
-        // current year legacy behavior: keep months up to current
-        return item.monthIndex <= currentMonthIndex;
-    });
+    // current year legacy behavior: keep months up to current
+    return item.monthIndex <= currentMonthIndex;
+  });
 
-    const targetMonthCount = maxMonths || DEFAULT_EVOLUTION_MONTHS;
-    // Create new objects without year and monthIndex
-    return filteredData.slice(-targetMonthCount).map(({ year, monthIndex, ...item }) => item);
+  const targetMonthCount = maxMonths || DEFAULT_EVOLUTION_MONTHS;
+  // Create new objects without year and monthIndex
+  return filteredData
+    .slice(-targetMonthCount)
+    .map(({ year, monthIndex, ...item }) => item);
 };
