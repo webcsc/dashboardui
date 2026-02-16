@@ -23,71 +23,33 @@ import {
 } from "recharts";
 import type { FilterState } from "@/types";
 import { DataTableModal } from "../modals/DataTableModal";
+import { MOCK_B2C } from "@/services/mock-kpi-strategic";
 
 interface B2CViewProps {
   filters: FilterState;
   isComparing: boolean;
 }
 
-const mrrData = [
-  { month: "Jan", mrr: 18500 },
-  { month: "Fév", mrr: 21000 },
-  { month: "Mar", mrr: 23500 },
-  { month: "Avr", mrr: 25000 },
-  { month: "Mai", mrr: 27500 },
-  { month: "Juin", mrr: 29000 },
-];
+// Extract data from mock for easier access
+const mockData = MOCK_B2C;
 
-const retentionData = [
-  { month: "M1", retention: 100 },
-  { month: "M2", retention: 92 },
-  { month: "M3", retention: 85 },
-  { month: "M4", retention: 80 },
-  { month: "M5", retention: 76 },
-  { month: "M6", retention: 73 },
-];
+// Transform data for charts
+const mrrData = mockData.mrr_abonnements.evolution.map((item) => ({
+  month: item.mois.substring(0, 3),
+  mrr: item.mrr,
+}));
 
-// Table data
-const mrrB2CTableData = [
-  { mois: "Janvier", mrr: 18500, abonnes: 412, panier: 45 },
-  { mois: "Février", mrr: 21000, abonnes: 468, panier: 45 },
-  { mois: "Mars", mrr: 23500, abonnes: 525, panier: 45 },
-  { mois: "Avril", mrr: 25000, abonnes: 580, panier: 43 },
-  { mois: "Mai", mrr: 27500, abonnes: 642, panier: 43 },
-  { mois: "Juin", mrr: 29000, abonnes: 690, panier: 42 },
-];
+const retentionData = mockData.retention_6mois.courbe.map((item) => ({
+  month: item.mois,
+  retention: parseInt(item.taux),
+}));
 
-const retentionTableData = [
-  { mois: "M1", cohorte: 500, restants: 500, taux: "100%" },
-  { mois: "M2", cohorte: 500, restants: 460, taux: "92%" },
-  { mois: "M3", cohorte: 500, restants: 425, taux: "85%" },
-  { mois: "M4", cohorte: 500, restants: 400, taux: "80%" },
-  { mois: "M5", cohorte: 500, restants: 380, taux: "76%" },
-  { mois: "M6", cohorte: 500, restants: 365, taux: "73%" },
-];
-
-const ltvTableData = [
-  { segment: "Nouveaux (<3m)", cac: 32, ltv: 98, ratio: "1:3.1" },
-  { segment: "Établis (3-12m)", cac: 28, ltv: 125, ratio: "1:4.5" },
-  { segment: "Fidèles (>12m)", cac: 22, ltv: 185, ratio: "1:8.4" },
-  { segment: "Moyenne", cac: 28, ltv: 118, ratio: "1:4.2" },
-];
-
-const npsTableData = [
-  { categorie: "Promoteurs (9-10)", nombre: 485, part: "45%" },
-  { categorie: "Passifs (7-8)", nombre: 387, part: "36%" },
-  { categorie: "Détracteurs (0-6)", nombre: 204, part: "19%" },
-  { categorie: "NPS Score", nombre: 62, part: "45-19=26pts" },
-];
-
-const ococB2CData = [
-  { mois: "Janvier", abonnes: 412, ococ: 1730, arbres: 395 },
-  { mois: "Février", abonnes: 468, ococ: 1965, arbres: 449 },
-  { mois: "Mars", abonnes: 525, ococ: 2205, arbres: 504 },
-  { mois: "Avril", abonnes: 580, ococ: 2436, arbres: 557 },
-  { mois: "Mai", abonnes: 642, ococ: 2696, arbres: 616 },
-  { mois: "Juin", abonnes: 690, ococ: 2898, arbres: 662 },
-];
+// Table data (already in correct format in mock)
+const mrrB2CTableData = mockData.mrr_abonnements.evolution;
+const retentionTableData = mockData.retention_6mois.courbe;
+const ltvTableData = mockData.cac_vs_ltv.par_segment;
+const npsTableData = mockData.nps.details;
+const ococB2CData = mockData.ococ_abonne.evolution;
 
 export function B2CView({ filters, isComparing }: B2CViewProps) {
   const [mrrModalOpen, setMrrModalOpen] = useState(false);
@@ -104,9 +66,9 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <BaseKpiCard
             label="MRR abonnements"
-            value="29k€"
-            previousValue="26k€"
-            trend={5.5}
+            value={`${(mockData.mrr_abonnements.current / 1000).toFixed(0)}k€`}
+            previousValue={`${(mockData.mrr_abonnements.previous / 1000).toFixed(0)}k€`}
+            trend={mockData.mrr_abonnements.trend}
             icon={<Euro className="h-5 w-5 text-segment-b2c" />}
             variant="b2c"
             showComparison={isComparing}
@@ -125,9 +87,9 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
           />
           <BaseKpiCard
             label="Rétention 6 mois"
-            value="73%"
-            previousValue="70%"
-            trend={2.8}
+            value={`${mockData.retention_6mois.current}%`}
+            previousValue={`${mockData.retention_6mois.previous}%`}
+            trend={mockData.retention_6mois.trend}
             icon={<TrendingUp className="h-5 w-5 text-segment-b2c" />}
             variant="b2c"
             showComparison={isComparing}
@@ -142,9 +104,9 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
           />
           <BaseKpiCard
             label="CAC vs LTV"
-            value="1:4.2"
-            previousValue="1:3.8"
-            trend={8.3}
+            value={mockData.cac_vs_ltv.current}
+            previousValue={mockData.cac_vs_ltv.previous}
+            trend={mockData.cac_vs_ltv.trend}
             icon={<Target className="h-5 w-5 text-segment-b2c" />}
             variant="b2c"
             showComparison={isComparing}
@@ -159,9 +121,9 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
           />
           <BaseKpiCard
             label="NPS"
-            value="62"
-            previousValue="58"
-            trend={5}
+            value={`${mockData.nps.current}`}
+            previousValue={`${mockData.nps.previous}`}
+            trend={mockData.nps.trend}
             icon={<Star className="h-5 w-5 text-segment-b2c" />}
             variant="b2c"
             showComparison={isComparing}
@@ -175,9 +137,9 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
           />
           <BaseKpiCard
             label="€ OCOC / abonné"
-            value="4.20€"
-            previousValue="3.75€"
-            trend={12.1}
+            value={`${mockData.ococ_abonne.current.toFixed(2)}€`}
+            previousValue={`${mockData.ococ_abonne.previous.toFixed(2)}€`}
+            trend={mockData.ococ_abonne.trend}
             icon={<User className="h-5 w-5 text-segment-b2c" />}
             variant="b2c"
             showComparison={isComparing}
@@ -299,8 +261,8 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SimpleKpiCard
             label="Abonnés actifs"
-            value="1,247"
-            trend={11.2}
+            value={`${mockData.abonnes_actifs.current.toLocaleString()}`}
+            trend={mockData.abonnes_actifs.trend}
             icon={<User className="h-4 w-4 text-muted-foreground" />}
             tableTitle="Répartition abonnés"
             tableColumns={[
@@ -316,8 +278,8 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
           />
           <SimpleKpiCard
             label="CAC"
-            value="28€"
-            trend={-8.5}
+            value={`${mockData.cac.current}€`}
+            trend={mockData.cac.trend}
             trendLabel="réduction"
             icon={<Euro className="h-4 w-4 text-muted-foreground" />}
             tableTitle="CAC par canal"
@@ -335,8 +297,8 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
           />
           <SimpleKpiCard
             label="Panier moyen"
-            value="42€"
-            trend={3.2}
+            value={`${mockData.panier_moyen.current}€`}
+            trend={mockData.panier_moyen.trend}
             icon={<Coffee className="h-4 w-4 text-muted-foreground" />}
             tableTitle="Panier par formule"
             tableColumns={[
@@ -352,8 +314,8 @@ export function B2CView({ filters, isComparing }: B2CViewProps) {
           />
           <SimpleKpiCard
             label="Taux parrainage"
-            value="18%"
-            trend={24}
+            value={mockData.taux_parrainage.current}
+            trend={mockData.taux_parrainage.trend}
             icon={<Share2 className="h-4 w-4 text-muted-foreground" />}
             tableTitle="Programme parrainage"
             tableColumns={[

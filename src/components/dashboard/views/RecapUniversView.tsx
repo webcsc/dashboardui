@@ -3,10 +3,20 @@ import { Coffee, Settings, Wrench, Euro } from "lucide-react";
 import type { FilterState } from "@/types";
 import { useMemo } from "react";
 import { useSummary } from "@/hooks/useDashboardData";
-import { useViewFilters, useComparisonHelpers } from '@/hooks';
-import { subMonths } from 'date-fns';
+import { useViewFilters, useComparisonHelpers } from "@/hooks";
+import { subMonths } from "date-fns";
 import { MONTH_ORDER, FRENCH_MONTHS } from "@/lib/dashboard-constants";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from "recharts";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  ReferenceArea,
+} from "recharts";
 import { useModalState } from "@/hooks/useModalState";
 import { DataTableModal } from "../modals/DataTableModal";
 import { useState, useEffect } from "react";
@@ -22,11 +32,17 @@ interface EvolutionDataItem {
   ca_total_ht?: number;
 }
 
-type MonthData = Record<string, EvolutionDataItem | { [key: string]: EvolutionDataItem }>;
+type MonthData = Record<
+  string,
+  EvolutionDataItem | { [key: string]: EvolutionDataItem }
+>;
 
-export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps) {
+export function RecapUniversView({
+  filters,
+  isComparing,
+}: RecapUniversViewProps) {
   // Modal state
-  const { openModals, openModal, closeModal } = useModalState(['evolution']);
+  const { openModals, openModal, closeModal } = useModalState(["evolution"]);
 
   // Fetch summary data for current period
   const { data: summaryResponse } = useSummary(filters);
@@ -40,8 +56,12 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
   }, [openModals.evolution, filters.clientId]);
 
   // Use custom hooks for filters and comparison helpers
-  const { modalFilters: baseModalFilters, comparisonFilters } = useViewFilters(filters, modalClientId);
-  const { getTrend, getPreviousCurrencyValue } = useComparisonHelpers(isComparing);
+  const { modalFilters: baseModalFilters, comparisonFilters } = useViewFilters(
+    filters,
+    modalClientId,
+  );
+  const { getTrend, getPreviousCurrencyValue } =
+    useComparisonHelpers(isComparing);
 
   // RecapUniversView uses specific modal logic (only 'evolution' modal uses client filter)
   // so we adapt the hook output
@@ -49,13 +69,13 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
 
   // Fetch summary data for modal (specific client filter)
   const { data: modalSummaryResponse } = useSummary(modalFilters, {
-    enabled: !!openModals.evolution
+    enabled: !!openModals.evolution,
   });
 
   const modalSummary = modalSummaryResponse;
 
   const { data: compareSummaryResponse } = useSummary(comparisonFilters, {
-    enabled: isComparing && !!filters.comparePeriod
+    enabled: isComparing && !!filters.comparePeriod,
   });
 
   // Fetch 12-month rolling window data for the chart
@@ -68,7 +88,7 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
 
     return {
       ...filters,
-      period: { start, end }
+      period: { start, end },
     };
   }, [filters]);
 
@@ -80,14 +100,18 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
 
     return {
       ...comparisonFilters,
-      period: { start, end }
+      period: { start, end },
     };
   }, [comparisonFilters]);
 
-  const { data: trendSummaryResponse, isLoading: isLoadingTrend } = useSummary(trendFilters);
-  const { data: trendCompareSummaryResponse } = useSummary(trendComparisonFilters, {
-    enabled: isComparing && !!trendComparisonFilters
-  });
+  const { data: trendSummaryResponse, isLoading: isLoadingTrend } =
+    useSummary(trendFilters);
+  const { data: trendCompareSummaryResponse } = useSummary(
+    trendComparisonFilters,
+    {
+      enabled: isComparing && !!trendComparisonFilters,
+    },
+  );
 
   const summary = summaryResponse;
   const trendSummary = trendSummaryResponse;
@@ -95,14 +119,16 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
   const trendCompareSummary = trendCompareSummaryResponse;
 
   // Calculate totals and trends
-  const caTotal = (summary?.overview?.cafe?.ca_total_ht_global || 0) +
+  const caTotal =
+    (summary?.overview?.cafe?.ca_total_ht_global || 0) +
     (summary?.overview?.equipement?.ca_total_ht_global || 0) +
     (summary?.overview?.service?.ca_total_ht_global || 0);
 
-  const compareCaTotal = compareSummary ?
-    (compareSummary.overview?.cafe?.ca_total_ht_global || 0) +
-    (compareSummary.overview?.equipement?.ca_total_ht_global || 0) +
-    (compareSummary.overview?.service?.ca_total_ht_global || 0) : 0;
+  const compareCaTotal = compareSummary
+    ? (compareSummary.overview?.cafe?.ca_total_ht_global || 0) +
+      (compareSummary.overview?.equipement?.ca_total_ht_global || 0) +
+      (compareSummary.overview?.service?.ca_total_ht_global || 0)
+    : 0;
 
   // Calculate market share
   const getMarketShare = (universeCA: number) => {
@@ -114,7 +140,6 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
 
   const currentYear = filters.period.start.getFullYear().toString();
 
-
   const evolutionChartData = useMemo(() => {
     if (!trendSummary?.evolution) return [];
 
@@ -124,7 +149,12 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     const endYear = end.getFullYear();
 
     // Generate month/year keys for the selected period
-    const periodKeys: { year: string; month: string; label: string; date: Date }[] = [];
+    const periodKeys: {
+      year: string;
+      month: string;
+      label: string;
+      date: Date;
+    }[] = [];
     const current = new Date(start);
     // Align to start of month
     current.setDate(1);
@@ -132,15 +162,16 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     while (current <= end) {
       const year = current.getFullYear().toString();
       const month = MONTH_ORDER[current.getMonth()];
-      const label = current.getFullYear() !== startYear && current.getMonth() === 0
-        ? `${FRENCH_MONTHS[month]} ${year.substring(2)}`
-        : FRENCH_MONTHS[month] || month.substring(0, 3);
+      const label =
+        current.getFullYear() !== startYear && current.getMonth() === 0
+          ? `${FRENCH_MONTHS[month]} ${year.substring(2)}`
+          : FRENCH_MONTHS[month] || month.substring(0, 3);
 
       periodKeys.push({
         year,
         month,
         label,
-        date: new Date(current)
+        date: new Date(current),
       });
       // Next month
       current.setMonth(current.getMonth() + 1);
@@ -157,12 +188,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       for (let i = 0; i < periodKeys.length; i++) {
         compareKeys.push({
           year: compareCurrent.getFullYear().toString(),
-          month: MONTH_ORDER[compareCurrent.getMonth()]
+          month: MONTH_ORDER[compareCurrent.getMonth()],
         });
         compareCurrent.setMonth(compareCurrent.getMonth() + 1);
       }
     }
-
 
     const cafeData = trendSummary.evolution.cafe;
     const equipementData = trendSummary.evolution.equipement;
@@ -186,15 +216,21 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       if (cafeYearData?.[month]) {
         // Handle both nested and direct structure
         const mData = cafeYearData[month];
-        cafe = (mData?.cafe?.ca_total_ht) || (mData?.ca_total_ht) || 0;
+        cafe = mData?.cafe?.ca_total_ht || mData?.ca_total_ht || 0;
       }
 
       // Equipement
       const equipYearData = equipementData?.[year];
       if (equipYearData?.[month]) {
         const mData = equipYearData[month] as MonthData;
-        if (mData && typeof mData === 'object') {
-          equipement = Number(Object.values(mData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht)) || 0, 0));
+        if (mData && typeof mData === "object") {
+          equipement = Number(
+            Object.values(mData).reduce(
+              (acc: number, item: EvolutionDataItem) =>
+                acc + Number(item?.ca_total_ht) || 0,
+              0,
+            ),
+          );
         }
       }
 
@@ -202,8 +238,14 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       const serviceYearData = serviceData?.[year];
       if (serviceYearData?.[month]) {
         const mData = serviceYearData[month] as MonthData;
-        if (mData && typeof mData === 'object') {
-          service = Number(Object.values(mData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0));
+        if (mData && typeof mData === "object") {
+          service = Number(
+            Object.values(mData).reduce(
+              (acc: number, item: EvolutionDataItem) =>
+                acc + (Number(item?.ca_total_ht) || 0),
+              0,
+            ),
+          );
         }
       }
 
@@ -213,25 +255,41 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
 
         if (cafePrevData?.[prevYear]?.[prevMonth]) {
           const mData = cafePrevData[prevYear][prevMonth];
-          cafePrev = (mData?.cafe?.ca_total_ht) || (mData?.ca_total_ht) || 0;
+          cafePrev = mData?.cafe?.ca_total_ht || mData?.ca_total_ht || 0;
         }
 
         if (equipementPrevData?.[prevYear]?.[prevMonth]) {
           const mData = equipementPrevData[prevYear][prevMonth] as MonthData;
-          equipementPrev = Number(Object.values(mData).reduce<number>((acc, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0));
+          equipementPrev = Number(
+            Object.values(mData).reduce<number>(
+              (acc, item: EvolutionDataItem) =>
+                acc + (Number(item?.ca_total_ht) || 0),
+              0,
+            ),
+          );
         }
 
         if (servicePrevData?.[prevYear]?.[prevMonth]) {
           const mData = servicePrevData[prevYear][prevMonth] as MonthData;
-          servicePrev = Number(Object.values(mData).reduce<number>((acc, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0));
+          servicePrev = Number(
+            Object.values(mData).reduce<number>(
+              (acc, item: EvolutionDataItem) =>
+                acc + (Number(item?.ca_total_ht) || 0),
+              0,
+            ),
+          );
         }
       }
 
       // Determine 'actif' state
-      const checkDate = new Date(date); checkDate.setHours(12, 0, 0, 0);
-      const userStart = new Date(filters.period.start); userStart.setHours(0, 0, 0, 0);
-      const userEnd = new Date(filters.period.end); userEnd.setHours(23, 59, 59, 999);
-      const today = new Date(); today.setHours(23, 59, 59, 999);
+      const checkDate = new Date(date);
+      checkDate.setHours(12, 0, 0, 0);
+      const userStart = new Date(filters.period.start);
+      userStart.setHours(0, 0, 0, 0);
+      const userEnd = new Date(filters.period.end);
+      userEnd.setHours(23, 59, 59, 999);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
 
       const isWithinSelection = checkDate >= userStart && checkDate <= userEnd;
       const isPastOrCurrent = checkDate <= today;
@@ -248,11 +306,18 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
         ...(isComparing && {
           cafePrev,
           equipementPrev,
-          servicePrev
-        })
+          servicePrev,
+        }),
       };
     });
-  }, [trendSummary, trendCompareSummary, filters.period, trendFilters, trendComparisonFilters, isComparing]);
+  }, [
+    trendSummary,
+    trendCompareSummary,
+    filters.period,
+    trendFilters,
+    trendComparisonFilters,
+    isComparing,
+  ]);
 
   // Calculate inactive ranges for ReferenceArea
   const inactiveRanges = useMemo(() => {
@@ -272,8 +337,8 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
         }
       } else {
         if (currentStart) {
-          // Close the previous range. 
-          // We need the *previous* point as end, but since we are at an active point, 
+          // Close the previous range.
+          // We need the *previous* point as end, but since we are at an active point,
           // the inactive range ended at index-1.
           const prevPoint = evolutionChartData[index - 1];
           ranges.push({ start: currentStart, end: prevPoint.mois });
@@ -289,8 +354,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
   const modalEvolutionChartData = useMemo(() => {
     if (!modalSummary?.evolution) return [];
 
-    const monthlyData: Record<string, { cafe: number; equipement: number; service: number; }> = {};
-    MONTH_ORDER.forEach(month => {
+    const monthlyData: Record<
+      string,
+      { cafe: number; equipement: number; service: number }
+    > = {};
+    MONTH_ORDER.forEach((month) => {
       monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
     });
 
@@ -298,7 +366,15 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     const cafeEvolution = modalSummary.evolution.cafe?.[currentYear];
     if (cafeEvolution) {
       Object.entries(cafeEvolution).forEach(([month, data]) => {
-        if (month !== 'total' && typeof data === 'object' && data !== null && 'cafe' in data && typeof data.cafe === 'object' && data.cafe !== null && 'ca_total_ht' in data.cafe) {
+        if (
+          month !== "total" &&
+          typeof data === "object" &&
+          data !== null &&
+          "cafe" in data &&
+          typeof data.cafe === "object" &&
+          data.cafe !== null &&
+          "ca_total_ht" in data.cafe
+        ) {
           const monthIndex = MONTH_ORDER.indexOf(month);
           if (monthIndex > -1) {
             monthlyData[month].cafe = data.cafe.ca_total_ht as number;
@@ -308,11 +384,16 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     }
 
     // Process current period equipement evolution (object structure)
-    const equipementEvolution = modalSummary.evolution.equipement?.[currentYear];
+    const equipementEvolution =
+      modalSummary.evolution.equipement?.[currentYear];
     if (equipementEvolution) {
       Object.entries(equipementEvolution).forEach(([month, dataObject]) => {
-        if (month !== 'total' && dataObject && typeof dataObject === 'object') {
-          const monthTotal = Object.values(dataObject as MonthData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0);
+        if (month !== "total" && dataObject && typeof dataObject === "object") {
+          const monthTotal = Object.values(dataObject as MonthData).reduce(
+            (acc: number, item: EvolutionDataItem) =>
+              acc + (Number(item?.ca_total_ht) || 0),
+            0,
+          );
           const monthIndex = MONTH_ORDER.indexOf(month);
           if (monthIndex > -1) {
             monthlyData[month].equipement = Number(monthTotal);
@@ -325,8 +406,12 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     const serviceEvolution = modalSummary.evolution.service?.[currentYear];
     if (serviceEvolution) {
       Object.entries(serviceEvolution).forEach(([month, dataObject]) => {
-        if (month !== 'total' && dataObject && typeof dataObject === 'object') {
-          const monthTotal = Object.values(dataObject as MonthData).reduce((acc: number, item: EvolutionDataItem) => acc + (Number(item?.ca_total_ht) || 0), 0);
+        if (month !== "total" && dataObject && typeof dataObject === "object") {
+          const monthTotal = Object.values(dataObject as MonthData).reduce(
+            (acc: number, item: EvolutionDataItem) =>
+              acc + (Number(item?.ca_total_ht) || 0),
+            0,
+          );
           const monthIndex = MONTH_ORDER.indexOf(month);
           if (monthIndex > -1) {
             monthlyData[month].service = Number(monthTotal);
@@ -336,7 +421,10 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     }
 
     return Object.entries(monthlyData)
-      .sort(([monthA], [monthB]) => MONTH_ORDER.indexOf(monthA) - MONTH_ORDER.indexOf(monthB))
+      .sort(
+        ([monthA], [monthB]) =>
+          MONTH_ORDER.indexOf(monthA) - MONTH_ORDER.indexOf(monthB),
+      )
       .map(([month, data]) => ({
         mois: FRENCH_MONTHS[month] || month.substring(0, 3),
         cafe: data.cafe,
@@ -345,12 +433,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       }));
   }, [modalSummary, currentYear]);
 
-
   // State for chart series visibility
   const [visibleSeries, setVisibleSeries] = useState({
     cafe: true,
     equipement: true,
-    service: true
+    service: true,
   });
 
   const handleLegendClick = (data: unknown) => {
@@ -358,9 +445,9 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
     const legendData = data as { dataKey?: string };
     const { dataKey } = legendData;
     if (dataKey && dataKey in visibleSeries) {
-      setVisibleSeries(prev => ({
+      setVisibleSeries((prev) => ({
         ...prev,
-        [dataKey]: !prev[dataKey as keyof typeof visibleSeries]
+        [dataKey]: !prev[dataKey as keyof typeof visibleSeries],
       }));
     }
   };
@@ -375,7 +462,9 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
       {/* Header */}
       <div>
         <h2 className="section-title">Récapitulatif par Univers</h2>
-        <p className="text-muted-foreground text-sm">Vue consolidée des univers Café, Équipement et Service</p>
+        <p className="text-muted-foreground text-sm">
+          Vue consolidée des univers Café, Équipement et Service
+        </p>
       </div>
 
       {/* Global KPIs */}
@@ -391,24 +480,43 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
         <BaseKpiCard
           label="CA Univers Café "
           value={formatPrice(summary?.overview?.cafe?.ca_total_ht_global || 0)}
-          previousValue={getPreviousCurrencyValue(compareSummary?.overview?.cafe?.ca_total_ht_global)}
-          trend={getTrend(summary?.overview?.cafe?.ca_total_ht_global, compareSummary?.overview?.cafe?.ca_total_ht_global)}
+          previousValue={getPreviousCurrencyValue(
+            compareSummary?.overview?.cafe?.ca_total_ht_global,
+          )}
+          trend={getTrend(
+            summary?.overview?.cafe?.ca_total_ht_global,
+            compareSummary?.overview?.cafe?.ca_total_ht_global,
+          )}
           icon={<Coffee className="h-5 w-5 text-universe-cafe" />}
           showComparison={isComparing}
         />
         <BaseKpiCard
           label="CA Équipement"
-          value={formatPrice(summary?.overview?.equipement?.ca_total_ht_global || 0)}
-          previousValue={getPreviousCurrencyValue(compareSummary?.overview?.equipement?.ca_total_ht_global)}
-          trend={getTrend(summary?.overview?.equipement?.ca_total_ht_global, compareSummary?.overview?.equipement?.ca_total_ht_global)}
+          value={formatPrice(
+            summary?.overview?.equipement?.ca_total_ht_global || 0,
+          )}
+          previousValue={getPreviousCurrencyValue(
+            compareSummary?.overview?.equipement?.ca_total_ht_global,
+          )}
+          trend={getTrend(
+            summary?.overview?.equipement?.ca_total_ht_global,
+            compareSummary?.overview?.equipement?.ca_total_ht_global,
+          )}
           icon={<Settings className="h-5 w-5 text-universe-equipement" />}
           showComparison={isComparing}
         />
         <BaseKpiCard
           label="CA Service"
-          value={formatPrice(summary?.overview?.service?.ca_total_ht_global || 0)}
-          previousValue={getPreviousCurrencyValue(compareSummary?.overview?.service?.ca_total_ht_global)}
-          trend={getTrend(summary?.overview?.service?.ca_total_ht_global, compareSummary?.overview?.service?.ca_total_ht_global)}
+          value={formatPrice(
+            summary?.overview?.service?.ca_total_ht_global || 0,
+          )}
+          previousValue={getPreviousCurrencyValue(
+            compareSummary?.overview?.service?.ca_total_ht_global,
+          )}
+          trend={getTrend(
+            summary?.overview?.service?.ca_total_ht_global,
+            compareSummary?.overview?.service?.ca_total_ht_global,
+          )}
           icon={<Wrench className="h-5 w-5 text-universe-service" />}
           showComparison={isComparing}
         />
@@ -427,19 +535,42 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">CA Mensuel</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatPrice(summary?.overview?.cafe?.ca_total_ht_global || 0)}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousCurrencyValue(compareSummary?.overview?.cafe?.ca_total_ht_global)}</span>}
+                <span className="font-semibold">
+                  {formatPrice(
+                    summary?.overview?.cafe?.ca_total_ht_global || 0,
+                  )}
+                </span>
+                {isComparing && (
+                  <span className="text-xs text-muted-foreground">
+                    vs{" "}
+                    {getPreviousCurrencyValue(
+                      compareSummary?.overview?.cafe?.ca_total_ht_global,
+                    )}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Volume</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatWeight(summary?.overview?.cafe?.volume_total_global || 0)}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">{formatWeight(compareSummary?.overview?.cafe?.volume_total_global || 0)}</span>}
+                <span className="font-semibold">
+                  {formatWeight(
+                    summary?.overview?.cafe?.volume_total_global || 0,
+                  )}
+                </span>
+                {isComparing && (
+                  <span className="text-xs text-muted-foreground">
+                    {formatWeight(
+                      compareSummary?.overview?.cafe?.volume_total_global || 0,
+                    )}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Part de marché</span>
+              <span className="text-sm text-muted-foreground">
+                Part de marché
+              </span>
               <span className="font-semibold">{`${getMarketShare(summary?.overview?.cafe?.ca_total_ht_global || 0)}%`}</span>
             </div>
           </div>
@@ -456,18 +587,35 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">CA Mensuel</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatPrice(summary?.overview?.equipement?.ca_total_ht_global || 0)}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousCurrencyValue(compareSummary?.overview?.equipement?.ca_total_ht_global)}</span>}
+                <span className="font-semibold">
+                  {formatPrice(
+                    summary?.overview?.equipement?.ca_total_ht_global || 0,
+                  )}
+                </span>
+                {isComparing && (
+                  <span className="text-xs text-muted-foreground">
+                    vs{" "}
+                    {getPreviousCurrencyValue(
+                      compareSummary?.overview?.equipement?.ca_total_ht_global,
+                    )}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Location</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatPrice(summary?.overview?.equipement?.ca_location_total_ht || 0)}</span>
+                <span className="font-semibold">
+                  {formatPrice(
+                    summary?.overview?.equipement?.ca_location_total_ht || 0,
+                  )}
+                </span>
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Part de marché</span>
+              <span className="text-sm text-muted-foreground">
+                Part de marché
+              </span>
               <span className="font-semibold">{`${getMarketShare(summary?.overview?.equipement?.ca_total_ht_global || 0)}%`}</span>
             </div>
           </div>
@@ -484,18 +632,35 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">CA Mensuel</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatPrice(summary?.overview?.service?.ca_total_ht_global || 0)}</span>
-                {isComparing && <span className="text-xs text-muted-foreground">vs {getPreviousCurrencyValue(compareSummary?.overview?.service?.ca_total_ht_global)}</span>}
+                <span className="font-semibold">
+                  {formatPrice(
+                    summary?.overview?.service?.ca_total_ht_global || 0,
+                  )}
+                </span>
+                {isComparing && (
+                  <span className="text-xs text-muted-foreground">
+                    vs{" "}
+                    {getPreviousCurrencyValue(
+                      compareSummary?.overview?.service?.ca_total_ht_global,
+                    )}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Cartouches</span>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatPrice(summary?.overview?.service?.ca_cartouche_total_ht || 0)}</span>
+                <span className="font-semibold">
+                  {formatPrice(
+                    summary?.overview?.service?.ca_cartouche_total_ht || 0,
+                  )}
+                </span>
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Part de marché</span>
+              <span className="text-sm text-muted-foreground">
+                Part de marché
+              </span>
               <span className="font-semibold">{`${getMarketShare(summary?.overview?.service?.ca_total_ht_global || 0)}%`}</span>
             </div>
           </div>
@@ -507,11 +672,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
         className="chart-container cursor-pointer hover:shadow-lg transition-all"
         onClick={(e) => {
           // Prevent modal opening when clicking legend
-          if ((e.target as Element).closest('.recharts-legend-wrapper')) {
+          if ((e.target as Element).closest(".recharts-legend-wrapper")) {
             e.stopPropagation();
             return;
           }
-          openModal('evolution')
+          openModal("evolution");
         }}
       >
         <div className="flex items-center justify-between mb-4">
@@ -524,16 +689,40 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
           <AreaChart data={evolutionChartData}>
             <defs>
               <linearGradient id="colorCafe" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(25, 70%, 50%)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="hsl(25, 70%, 50%)" stopOpacity={0} />
+                <stop
+                  offset="5%"
+                  stopColor="hsl(25, 70%, 50%)"
+                  stopOpacity={0.4}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="hsl(25, 70%, 50%)"
+                  stopOpacity={0}
+                />
               </linearGradient>
               <linearGradient id="colorEquipement" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(200, 55%, 40%)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="hsl(200, 55%, 40%)" stopOpacity={0} />
+                <stop
+                  offset="5%"
+                  stopColor="hsl(200, 55%, 40%)"
+                  stopOpacity={0.4}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="hsl(200, 55%, 40%)"
+                  stopOpacity={0}
+                />
               </linearGradient>
               <linearGradient id="colorService" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(140, 50%, 45%)" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="hsl(140, 50%, 45%)" stopOpacity={0} />
+                <stop
+                  offset="5%"
+                  stopColor="hsl(140, 50%, 45%)"
+                  stopOpacity={0.4}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="hsl(140, 50%, 45%)"
+                  stopOpacity={0}
+                />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
@@ -559,8 +748,12 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
               cursor="pointer"
               formatter={(value, entry: any) => {
                 const { dataKey } = entry;
-                const isHidden = dataKey && !visibleSeries[dataKey as keyof typeof visibleSeries];
-                return <span style={{ opacity: isHidden ? 0.5 : 1 }}>{value}</span>;
+                const isHidden =
+                  dataKey &&
+                  !visibleSeries[dataKey as keyof typeof visibleSeries];
+                return (
+                  <span style={{ opacity: isHidden ? 0.5 : 1 }}>{value}</span>
+                );
               }}
             />
             <Area
@@ -607,7 +800,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
                   strokeWidth={2}
                   strokeDasharray="5 5"
                   fill="none"
-                  dot={{ fill: "hsl(25, 70%, 50%)", r: 3, strokeDasharray: "none" }}
+                  dot={{
+                    fill: "hsl(25, 70%, 50%)",
+                    r: 3,
+                    strokeDasharray: "none",
+                  }}
                   activeDot={{ r: 5 }}
                   hide={!visibleSeries.cafe}
                 />
@@ -619,7 +816,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
                   strokeWidth={2}
                   strokeDasharray="5 5"
                   fill="none"
-                  dot={{ fill: "hsl(200, 55%, 40%)", r: 3, strokeDasharray: "none" }}
+                  dot={{
+                    fill: "hsl(200, 55%, 40%)",
+                    r: 3,
+                    strokeDasharray: "none",
+                  }}
                   activeDot={{ r: 5 }}
                   hide={!visibleSeries.equipement}
                 />
@@ -631,7 +832,11 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
                   strokeWidth={2}
                   strokeDasharray="5 5"
                   fill="none"
-                  dot={{ fill: "hsl(140, 50%, 45%)", r: 3, strokeDasharray: "none" }}
+                  dot={{
+                    fill: "hsl(140, 50%, 45%)",
+                    r: 3,
+                    strokeDasharray: "none",
+                  }}
                   activeDot={{ r: 5 }}
                   hide={!visibleSeries.service}
                 />
@@ -652,40 +857,40 @@ export function RecapUniversView({ filters, isComparing }: RecapUniversViewProps
         </ResponsiveContainer>
       </div>
 
-
       {/* Evolution Modal */}
       <DataTableModal
         open={openModals.evolution || false}
-        onOpenChange={() => closeModal('evolution')}
+        onOpenChange={() => closeModal("evolution")}
         title="Évolution du CA par univers - Détails"
         columns={[
-          { key: 'mois', label: 'Mois' },
+          { key: "mois", label: "Mois" },
           {
-            key: 'cafe',
-            label: 'Café',
-            format: (v) => formatPrice(v)
+            key: "cafe",
+            label: "Café",
+            format: (v) => formatPrice(v),
           },
           {
-            key: 'equipement',
-            label: 'Équipement',
-            format: (v) => formatPrice(v)
+            key: "equipement",
+            label: "Équipement",
+            format: (v) => formatPrice(v),
           },
           {
-            key: 'service',
-            label: 'Service',
-            format: (v) => formatPrice(v)
+            key: "service",
+            label: "Service",
+            format: (v) => formatPrice(v),
           },
           {
-            key: 'total',
-            label: 'Total',
-            format: (v) => formatPrice(v)
-          }
+            key: "total",
+            label: "Total",
+            format: (v) => formatPrice(v),
+          },
         ]}
         clientId={modalClientId}
         onClientChange={setModalClientId}
-        data={modalEvolutionChartData.map(item => ({
+        data={modalEvolutionChartData.map((item) => ({
           ...item,
-          total: (item.cafe || 0) + (item.equipement || 0) + (item.service || 0)
+          total:
+            (item.cafe || 0) + (item.equipement || 0) + (item.service || 0),
         }))}
         variant="cafe"
       />

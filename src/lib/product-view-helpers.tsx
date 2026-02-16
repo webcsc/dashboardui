@@ -18,11 +18,73 @@ interface RenderProductViewOptions {
   filters?: import("@/types").FilterState;
 }
 
-interface MergedProduct extends Record<string, string | number | undefined> {
+export interface MergedProduct extends Record<
+  string,
+  string | number | undefined
+> {
   prev_ca?: number;
   trend_ca?: number;
   prev_vol?: number;
   trend_vol?: number;
+  prev_count?: number;
+  trend_count?: number;
+  [key: string]: string | number | undefined;
+}
+
+/**
+ * Helper to merge current product data with comparison data
+ */
+export function mergeProductData(
+  currentRows: any[],
+  compareRows: any[],
+  matchKey: string,
+  getTrend: (current: number, previous: number | undefined) => number,
+  secondaryKey: string = "volume_total",
+): MergedProduct[] {
+  return currentRows.map((row) => {
+    // Find matching row in previous period by matchKey
+    const currentMatchValue = row[matchKey];
+
+    const prevRow = compareRows.find((p) => {
+      const prevMatchValue = p[matchKey];
+      return prevMatchValue === currentMatchValue;
+    });
+
+    const currentCA = Number(row.ca_total_ht || 0);
+    const prevCA =
+      prevRow?.ca_total_ht !== undefined
+        ? Number(prevRow.ca_total_ht)
+        : undefined;
+
+    const currentSec = Number(row[secondaryKey] || 0);
+    const prevSec =
+      prevRow?.[secondaryKey] !== undefined
+        ? Number(prevRow[secondaryKey])
+        : undefined;
+
+    const trendCA = getTrend(currentCA, prevCA);
+    const trendSec = getTrend(currentSec, prevSec);
+
+    const result: MergedProduct = {
+      ...row,
+      prev_ca: prevCA,
+      trend_ca: trendCA,
+    };
+
+    if (secondaryKey === "volume_total") {
+      result.prev_vol = prevSec;
+      result.trend_vol = trendSec;
+    } else if (secondaryKey === "count") {
+      result.prev_count = prevSec;
+      result.trend_count = trendSec;
+    } else {
+      // dynamic key fallback if needed, but for now we stick to refined types
+      result[`prev_${secondaryKey}`] = prevSec;
+      result[`trend_${secondaryKey}`] = trendSec;
+    }
+
+    return result;
+  });
 }
 
 /**
@@ -73,32 +135,12 @@ export function renderProductView({
         : Object.values(compareList ?? {});
 
       // 3. Merge data with comparison
-      const mergedData: MergedProduct[] = currentRows.map((row) => {
-        // Find matching row in previous period by matchKey
-        const currentMatchValue = row[matchKey];
-
-        const prevRow = compareRows.find((p) => {
-          const prevMatchValue = p[matchKey];
-          return prevMatchValue === currentMatchValue;
-        });
-
-        const currentCA = row.ca_total_ht || 0;
-        const prevCA = prevRow?.ca_total_ht;
-
-        const currentVol = row.volume_total || 0;
-        const prevVol = prevRow?.volume_total;
-
-        const trendCA = getTrend(currentCA, prevCA);
-        const trendVol = getTrend(currentVol, prevVol);
-
-        return {
-          ...row,
-          prev_ca: prevCA,
-          trend_ca: trendCA,
-          prev_vol: prevVol,
-          trend_vol: trendVol,
-        };
-      });
+      const mergedData = mergeProductData(
+        currentRows,
+        compareRows,
+        matchKey,
+        getTrend,
+      );
 
       // 4. Build columns based on comparison mode
       const columns: TableColumn[] = [];
@@ -199,6 +241,7 @@ export function renderProductView({
           clientId={clientId}
           onClientChange={onClientChange}
           filters={filters}
+          isComparing={isComparing}
         />
       );
     },

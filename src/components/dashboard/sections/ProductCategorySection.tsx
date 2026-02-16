@@ -14,6 +14,8 @@ import { useProducts } from "@/hooks/useDashboardData";
 import { useViewFilters } from "@/hooks";
 import type { FilterState } from "@/types";
 import type { Product } from "@/types/products";
+import { mergeProductData } from "@/lib/product-view-helpers";
+import { useComparisonHelpers } from "@/hooks";
 
 interface ProductCategorySectionProps {
   title: string;
@@ -27,6 +29,8 @@ interface ProductCategorySectionProps {
   onClientChange?: (id: string) => void;
   filters?: FilterState;
   isLoading?: boolean;
+  modalDataPath?: string[];
+  isComparing?: boolean;
 }
 
 const variantStyles = {
@@ -58,6 +62,8 @@ export function ProductCategorySection({
   clientId,
   onClientChange,
   filters,
+  isComparing = false,
+  modalDataPath,
 }: ProductCategorySectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalClientId, setModalClientId] = useState<string | undefined>(
@@ -76,10 +82,19 @@ export function ProductCategorySection({
   const shouldFetchData = !!filters && isModalOpen;
 
   // Create modal filters with the modal client (provide default if not available)
-  const { modalFilters } = useViewFilters(
+  const { modalFilters, comparisonFilters } = useViewFilters(
     filters ||
       ({ period: { start: new Date(), end: new Date() } } as FilterState),
     modalClientId,
+  );
+
+  // We need specific comparison filters for the modal (using modalClientId)
+  const modalComparisonFilters = useMemo(
+    () => ({
+      ...comparisonFilters,
+      clientId: modalClientId,
+    }),
+    [comparisonFilters, modalClientId],
   );
 
   // Fetch products data for modal when it's open (only if filters provided)
@@ -88,6 +103,32 @@ export function ProductCategorySection({
     isFetching: isFetchingProducts,
     error: productsError,
   } = useProducts(variant, modalFilters, { enabled: shouldFetchData });
+
+  // Fetch comparison data if needed
+  const {
+    data: modalCompareProductsResponse,
+    isFetching: isFetchingCompareProducts,
+  } = useProducts(variant, modalComparisonFilters, {
+    enabled: shouldFetchData && isComparing,
+  });
+
+  const { getTrend } = useComparisonHelpers(isComparing);
+
+  // Helper to extract data using a path (e.g., ["Location Machines", "Par Marque"])
+  const extractDataFromPath = (response: any, path?: string[]) => {
+    if (!response?.products) return null;
+    if (!path || path.length === 0) return response.products[title];
+
+    let current = response.products;
+    for (const key of path) {
+      if (current && typeof current === "object") {
+        current = (current as Record<string, any>)[key];
+      } else {
+        return null;
+      }
+    }
+    return current;
+  };
 
   // Extract the category data from the response
   const modalData = useMemo(() => {
@@ -99,15 +140,103 @@ export function ProductCategorySection({
 
     if (!shouldFetchData || !modalProductsResponse?.products) return data;
 
-    // The API returns { products: { "Category Name": { items } } }
-    const categoryData = modalProductsResponse.products[title];
-    if (!categoryData || Array.isArray(categoryData)) return data;
+    // Use path if provided, otherwise fallback to title
+    const categoryData = modalDataPath
+      ? extractDataFromPath(modalProductsResponse, modalDataPath)
+      : modalProductsResponse.products[title];
 
-    // Transform the category data to match the expected format
-    return Object.values(categoryData).map((item: Product) => ({
-      ...item,
-    }));
-  }, [shouldFetchData, modalProductsResponse, title, data, productsError]);
+    if (!categoryData || Array.isArray(categoryData)) {
+      // If we found nothing via path, or it returned an array (should be object map for products?)
+      // Wait, standard products endpoint returns { products: { Category: { Item1: ..., Item2: ... } } }
+      // So categoryData should be the map of items.
+      // If it's an array, it might be the items list directly?
+      // Let's assume consistent object map for now, or validation.
+      // If data is missing in modal response (e.g. filtered out), return empty or keep original data?
+      // Usually we want the filtered data. If empty, it means 0 results.
+      if (!categoryData) return []; // Empty if not found in filtered response
+    }
+
+    // Get comparison data for this category
+    const compareCategoryData =
+      isComparing && modalCompareProductsResponse?.products
+        ? modalDataPath
+          ? extractDataFromPath(modalCompareProductsResponse, modalDataPath)
+          : modalCompareProductsResponse.products[title]
+        : {};
+
+    const currentRows = categoryData ? Object.values(categoryData) : [];
+    const compareRows = compareCategoryData
+      ? Object.values(compareCategoryData)
+      : [];
+
+    if (isComparing) {
+      // Use the helper we extracted to merge data
+      let matchKey = "type"; // default for cafe
+      if (variant === "equipement") matchKey = "type"; // Equipement rows usually have 'type' or 'marque' as key, but helper adds 'type' key
+      if (variant === "service") matchKey = "type_intervention";
+
+      // Heuristic for matchKey if not explicit
+      if (currentRows.length > 0) {
+        const firstRow = currentRows[0];
+        if (firstRow && typeof firstRow === "object" && "type" in firstRow) {
+          matchKey = "type";
+        }
+        // For equipement, the rows might have 'marque' or 'type' depending on subcategory
+        // But the API response objects usually have the key as the ID.
+        // Wait, Object.values() loses the key.
+        // In `renderEquipementProductView`, we map `Object.entries` to inject `type: productName`.
+        // BUT here we are reading raw API response which DOES NOT have `type` injected yet (unless API provides it).
+        // `mergeProductData` in `equipement-product-view-helpers` manually injects `type`.
+        // We need to do the same here if the raw API data doesn't have it.
+        // The raw API data for Equipement is `EquipementProduct { ca_total_ht, count }`. It lacks the name/type.
+        // The name is the KEY in the object map.
+      }
+
+      // If we are reading raw API object map, we need to preserve keys as 'type'
+      const normalizeRawData = (dataMap: any) => {
+        if (!dataMap) return [];
+        return Object.entries(dataMap).map(([key, val]: [string, any]) => ({
+          ...val,
+          type: key, // Inject key as type/name for matching
+          // If the data already has a name field, we might prefer that, but 'type' is used in equipement helper
+        }));
+      };
+
+      const normalizedCurrent = normalizeRawData(categoryData);
+      const normalizedCompare = normalizeRawData(compareCategoryData);
+
+      const secondaryKey = variant === "equipement" ? "count" : "volume_total";
+
+      return mergeProductData(
+        normalizedCurrent,
+        normalizedCompare,
+        "type", // keys became 'type'
+        getTrend,
+        secondaryKey,
+      );
+    }
+
+    // Transform the category data to match the expected format (injecting keys if needed)
+    if (categoryData) {
+      return Object.entries(categoryData).map(([key, item]: [string, any]) => ({
+        ...item,
+        type: key, // Ensure we have the key available as type/name
+      }));
+    }
+
+    return data;
+  }, [
+    shouldFetchData,
+    modalProductsResponse,
+    modalCompareProductsResponse,
+    title,
+    data,
+    productsError,
+    isComparing,
+    getTrend,
+    variant,
+    modalDataPath,
+  ]);
 
   const handleClientChange = (newClientId: string) => {
     setModalClientId(newClientId);
@@ -201,7 +330,9 @@ export function ProductCategorySection({
         variant={variant}
         clientId={modalClientId}
         onClientChange={handleClientChange}
-        isLoading={isFetchingProducts && shouldFetchData}
+        isLoading={
+          (isFetchingProducts || isFetchingCompareProducts) && shouldFetchData
+        }
       />
     </>
   );

@@ -1,66 +1,64 @@
 import { useState } from "react";
 import { SimpleKpiCard } from "../cards/SimpleKpiCard";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
-import { Zap, Coffee, TrendingDown, Euro, Target, Clock, HeadphonesIcon } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  Zap,
+  Coffee,
+  TrendingDown,
+  Euro,
+  Target,
+  Clock,
+  HeadphonesIcon,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import type { FilterState } from "@/types";
 import { DataTableModal } from "../modals/DataTableModal";
+import { MOCK_PLUG_PLAY } from "@/services/mock-kpi-strategic";
 
 interface PlugPlayViewProps {
   filters: FilterState;
   isComparing: boolean;
 }
 
-const mrrData = [
-  { month: "Jan", mrr: 42000 },
-  { month: "Fév", mrr: 45000 },
-  { month: "Mar", mrr: 48500 },
-  { month: "Avr", mrr: 52000 },
-  { month: "Mai", mrr: 55500 },
-  { month: "Juin", mrr: 58000 },
-];
+// Extract data from mock for easier access
+const mockData = MOCK_PLUG_PLAY;
+
+// Transform data for charts
+const mrrData = mockData.mrr.evolution.map((item) => ({
+  month: item.mois.substring(0, 3),
+  mrr: item.mrr,
+}));
 
 const churnData = [
-  { name: "Actifs", value: 92, color: "hsl(145, 45%, 35%)" },
-  { name: "Churn 90j", value: 8, color: "hsl(0, 72%, 51%)" },
+  {
+    name: "Actifs",
+    value: 100 - mockData.churn_90j.current,
+    color: "hsl(145, 45%, 35%)",
+  },
+  {
+    name: "Churn 90j",
+    value: mockData.churn_90j.current,
+    color: "hsl(0, 72%, 51%)",
+  },
 ];
 
-// Table data
-const mrrTableData = [
-  { mois: "Janvier", mrr: 42000, nouveaux: 12, churns: 3, net: 9 },
-  { mois: "Février", mrr: 45000, nouveaux: 15, churns: 4, net: 11 },
-  { mois: "Mars", mrr: 48500, nouveaux: 18, churns: 5, net: 13 },
-  { mois: "Avril", mrr: 52000, nouveaux: 20, churns: 4, net: 16 },
-  { mois: "Mai", mrr: 55500, nouveaux: 22, churns: 6, net: 16 },
-  { mois: "Juin", mrr: 58000, nouveaux: 18, churns: 5, net: 13 },
-];
-
-const churnTableData = [
-  { cohorte: "Janvier", inscrits: 45, actifs90j: 42, churns: 3, taux: "6.7%" },
-  { cohorte: "Février", inscrits: 52, actifs90j: 47, churns: 5, taux: "9.6%" },
-  { cohorte: "Mars", inscrits: 58, actifs90j: 53, churns: 5, taux: "8.6%" },
-  { cohorte: "Avril", inscrits: 61, actifs90j: 56, churns: 5, taux: "8.2%" },
-];
-
-const arpaTableData = [
-  { pack: "Starter", clients: 85, arpa: 195, part: "36%" },
-  { pack: "Business", clients: 112, arpa: 265, part: "47%" },
-  { pack: "Premium", clients: 40, arpa: 345, part: "17%" },
-];
-
-const serviceTableData = [
-  { type: "Installation", tickets: 45, coutMoyen: 85, total: 3825 },
-  { type: "Support téléphone", tickets: 180, coutMoyen: 12, total: 2160 },
-  { type: "Intervention site", tickets: 28, coutMoyen: 65, total: 1820 },
-  { type: "Réassort express", tickets: 15, coutMoyen: 25, total: 375 },
-];
-
-const activationTableData = [
-  { semaine: "S1", inscrits: 15, actives: 12, taux: "80%" },
-  { semaine: "S2", inscrits: 18, actives: 16, taux: "89%" },
-  { semaine: "S3", inscrits: 22, actives: 20, taux: "91%" },
-  { semaine: "S4", inscrits: 20, actives: 18, taux: "90%" },
-];
+// Table data (already in correct format in mock)
+const mrrTableData = mockData.mrr.evolution;
+const churnTableData = mockData.churn_90j.par_cohorte;
+const arpaTableData = mockData.arpa.par_pack;
+const serviceTableData = mockData.cout_service_client.par_type;
+const activationTableData = mockData.taux_activation.par_semaine;
 
 export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
   const [mrrModalOpen, setMrrModalOpen] = useState(false);
@@ -77,16 +75,20 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <BaseKpiCard
             label="MRR"
-            value="58k€"
-            previousValue="52k€"
-            trend={4.5}
+            value={`${(mockData.mrr.current / 1000).toFixed(0)}k€`}
+            previousValue={`${(mockData.mrr.previous / 1000).toFixed(0)}k€`}
+            trend={mockData.mrr.trend}
             icon={<Euro className="h-5 w-5 text-segment-pp" />}
             variant="pp"
             showComparison={isComparing}
             tableTitle="Évolution MRR"
             tableColumns={[
               { key: "mois", label: "Mois" },
-              { key: "mrr", label: "MRR", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+              {
+                key: "mrr",
+                label: "MRR",
+                format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
+              },
               { key: "nouveaux", label: "Nouveaux" },
               { key: "churns", label: "Churns" },
               { key: "net", label: "Net" },
@@ -95,9 +97,9 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
           />
           <BaseKpiCard
             label="Churn 90 jours"
-            value="8%"
-            previousValue="9.2%"
-            trend={-1.2}
+            value={`${mockData.churn_90j.current}%`}
+            previousValue={`${mockData.churn_90j.previous}%`}
+            trend={mockData.churn_90j.trend}
             icon={<TrendingDown className="h-5 w-5 text-segment-pp" />}
             variant="pp"
             showComparison={isComparing}
@@ -113,9 +115,9 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
           />
           <BaseKpiCard
             label="ARPA"
-            value="245€"
-            previousValue="236€"
-            trend={3.8}
+            value={`${mockData.arpa.current}€`}
+            previousValue={`${mockData.arpa.previous}€`}
+            trend={mockData.arpa.trend}
             icon={<Target className="h-5 w-5 text-segment-pp" />}
             variant="pp"
             showComparison={isComparing}
@@ -130,9 +132,9 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
           />
           <BaseKpiCard
             label="Coût service / client"
-            value="18€"
-            previousValue="19€"
-            trend={-5.2}
+            value={`${mockData.cout_service_client.current}€`}
+            previousValue={`${mockData.cout_service_client.previous}€`}
+            trend={mockData.cout_service_client.trend}
             icon={<HeadphonesIcon className="h-5 w-5 text-segment-pp" />}
             variant="pp"
             showComparison={isComparing}
@@ -147,9 +149,9 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
           />
           <BaseKpiCard
             label="Taux activation"
-            value="87%"
-            previousValue="84%"
-            trend={6.4}
+            value={`${mockData.taux_activation.current}%`}
+            previousValue={`${mockData.taux_activation.previous}%`}
+            trend={mockData.taux_activation.trend}
             icon={<Zap className="h-5 w-5 text-segment-pp" />}
             variant="pp"
             showComparison={isComparing}
@@ -173,14 +175,24 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Évolution MRR</h3>
-            <span className="text-xs text-muted-foreground underline">Voir tableau</span>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={mrrData}>
               <defs>
                 <linearGradient id="colorMrr" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(35, 85%, 50%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(35, 85%, 50%)" stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor="hsl(35, 85%, 50%)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="hsl(35, 85%, 50%)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
@@ -188,7 +200,9 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
               <YAxis
                 stroke="hsl(25, 15%, 45%)"
                 fontSize={12}
-                tickFormatter={(value) => `${((value || 0) / 1000).toFixed(0)}k€`}
+                tickFormatter={(value) =>
+                  `${((value || 0) / 1000).toFixed(0)}k€`
+                }
               />
               <Tooltip
                 contentStyle={{
@@ -196,7 +210,10 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
                   border: "1px solid hsl(35, 20%, 88%)",
                   borderRadius: "0.75rem",
                 }}
-                formatter={(value: number) => [`${(value || 0).toLocaleString()}€`, "MRR"]}
+                formatter={(value: number) => [
+                  `${(value || 0).toLocaleString()}€`,
+                  "MRR",
+                ]}
               />
               <Area
                 type="monotone"
@@ -216,7 +233,9 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Rétention à 90 jours</h3>
-            <span className="text-xs text-muted-foreground underline">Voir tableau</span>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
           </div>
           <div className="flex items-center justify-center">
             <ResponsiveContainer width="100%" height={250}>
@@ -254,8 +273,8 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SimpleKpiCard
             label="Abonnements actifs"
-            value="237"
-            trend={8.5}
+            value={`${mockData.abonnements_actifs.current}`}
+            trend={mockData.abonnements_actifs.trend}
             icon={<Zap className="h-4 w-4 text-muted-foreground" />}
             tableTitle="Répartition abonnements"
             tableColumns={[
@@ -271,8 +290,8 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
           />
           <SimpleKpiCard
             label="Tasses / client / mois"
-            value="420"
-            trend={3.2}
+            value={`${mockData.tasses_client_mois.current}`}
+            trend={mockData.tasses_client_mois.trend}
             icon={<Coffee className="h-4 w-4 text-muted-foreground" />}
             tableTitle="Consommation par pack"
             tableColumns={[
@@ -288,8 +307,8 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
           />
           <SimpleKpiCard
             label="Délai installation"
-            value="3.2 jours"
-            trend={-15}
+            value={mockData.delai_installation.current}
+            trend={mockData.delai_installation.trend}
             trendLabel="amélioration"
             icon={<Clock className="h-4 w-4 text-muted-foreground" />}
             tableTitle="Délais par région"
@@ -299,15 +318,23 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
               { key: "installations", label: "Installations" },
             ]}
             tableData={[
-              { region: "Île-de-France", delai: "2.5 jours", installations: 35 },
-              { region: "Lyon/Marseille", delai: "3.0 jours", installations: 22 },
+              {
+                region: "Île-de-France",
+                delai: "2.5 jours",
+                installations: 35,
+              },
+              {
+                region: "Lyon/Marseille",
+                delai: "3.0 jours",
+                installations: 22,
+              },
               { region: "Autres", delai: "4.2 jours", installations: 18 },
             ]}
           />
           <SimpleKpiCard
             label="Taux upsell"
-            value="24%"
-            trend={5.8}
+            value={mockData.taux_upsell.current}
+            trend={mockData.taux_upsell.trend}
             icon={<Target className="h-4 w-4 text-muted-foreground" />}
             tableTitle="Upsells par type"
             tableColumns={[
@@ -331,7 +358,11 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
         title="Données MRR"
         columns={[
           { key: "month", label: "Mois" },
-          { key: "mrr", label: "MRR", format: (v) => `${(v || 0).toLocaleString()}€` },
+          {
+            key: "mrr",
+            label: "MRR",
+            format: (v) => `${(v || 0).toLocaleString()}€`,
+          },
         ]}
         data={mrrData}
         variant="pp"
@@ -350,6 +381,3 @@ export function PlugPlayView({ filters, isComparing }: PlugPlayViewProps) {
     </div>
   );
 }
-
-
-

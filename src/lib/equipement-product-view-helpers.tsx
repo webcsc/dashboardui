@@ -260,6 +260,43 @@ export function renderEquipementProductView({
     const isSpecialModalTitle =
       categoryIgnoreTitle.includes(category) &&
       subcategoryIgnoreTitle.includes(subCategory);
+
+    // Determine the path in the API response (which follows the original structure)
+    // By default, it's [category, subCategory]
+    // But for injected categories, we need to point to the source
+    let modalDataPath = [category, subCategory];
+
+    // Check if this is an injected category
+    // We reverse-lookup the injectRules to find the source
+    // injectRules maps "Target Category" -> { fromCategory: "Source" }
+    // The current 'category' is the Target.
+    // However, the subCategory for injected items is "Vente Accessoires" or "Location Accessoires"
+    // AND the rule says inject into "Location Machines" FROM "Location Accessoires"
+
+    if (
+      category === "Location Machines" &&
+      subCategory === "Location Accessoires"
+    ) {
+      modalDataPath = ["Location Accessoires", "Location Accessoires"];
+    } else if (
+      category === "Vente Machines" &&
+      subCategory === "Vente Accessoires"
+    ) {
+      modalDataPath = ["Vente Accessoires", "Vente Accessoires"];
+    }
+
+    // Also handle Typologie injection?
+    // The Typologie is injected from the source category.
+    // If we are in "Location Machines" -> "Typologie", it comes from "Location Machines" -> "Typologie" (standard)
+    // But wait, the normalizeProducts function injects Typologie from "Location Accessoires" into "Location Machines" ??
+    // No, normalizeProducts says:
+    // [rule.injectKey]: getTypologie(src, rule.fromCategory)
+    // rule.injectKey is "Location Accessoires".
+    // So "Location Machines" has a new key "Location Accessoires" which comes from "Location Accessoires".
+    // "Location Machines" ALREADY has "Typologie" (its own).
+    // The code says: `...productMap` (original machines) + injected accessories.
+    // So "Typologie" under "Location Machines" is the machine typology.
+
     return (
       <ProductCategorySection
         key={`${category}-${subCategory}`}
@@ -271,6 +308,8 @@ export function renderEquipementProductView({
         onClientChange={onClientChange}
         filters={filters}
         clientId={clientId}
+        modalDataPath={modalDataPath}
+        isComparing={isComparing}
       />
     );
   };

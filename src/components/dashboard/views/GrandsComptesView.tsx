@@ -1,79 +1,63 @@
 import { useState } from "react";
 import { SimpleKpiCard } from "../cards/SimpleKpiCard";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
-import { Building2, TrendingUp, Coffee, Users, Euro, Clock, Target, FileText } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import {
+  Building2,
+  TrendingUp,
+  Coffee,
+  Users,
+  Euro,
+  Clock,
+  Target,
+  FileText,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
 import type { FilterState } from "@/types";
 import { DataTableModal } from "../modals/DataTableModal";
 import { TableColumn } from "@/types";
 import { ImpactCard } from "../cards/ImpactCard";
+import { MOCK_GRANDS_COMPTES } from "@/services/mock-kpi-strategic";
 
 interface GrandsComptesViewProps {
   filters: FilterState;
   isComparing: boolean;
 }
 
-const revenueData = [
-  { month: "Jan", arr: 2450000 },
-  { month: "Fév", arr: 2580000 },
-  { month: "Mar", arr: 2670000 },
-  { month: "Avr", arr: 2750000 },
-  { month: "Mai", arr: 2890000 },
-  { month: "Juin", arr: 2980000 },
-];
+// Extract data from mock for easier access
+const mockData = MOCK_GRANDS_COMPTES;
 
-const adoptionData = [
-  { client: "Client A", taux: 78 },
-  { client: "Client B", taux: 65 },
-  { client: "Client C", taux: 92 },
-  { client: "Client D", taux: 54 },
-  { client: "Client E", taux: 88 },
-];
+// Transform data for charts
+const revenueData = mockData.arr.evolution.map((item) => ({
+  month: item.month.substring(0, 3),
+  arr: item.arr,
+}));
 
-// Table data
-const arrTableData = [
-  { mois: "Janvier", arr: 2450000, variation: "+5.2%", clients: 42 },
-  { mois: "Février", arr: 2580000, variation: "+5.3%", clients: 43 },
-  { mois: "Mars", arr: 2670000, variation: "+3.5%", clients: 44 },
-  { mois: "Avril", arr: 2750000, variation: "+3.0%", clients: 45 },
-  { mois: "Mai", arr: 2890000, variation: "+5.1%", clients: 46 },
-  { mois: "Juin", arr: 2980000, variation: "+3.1%", clients: 47 },
-];
+const adoptionData = mockData.adoption_interne.par_client.map((item) => ({
+  client: item.client,
+  taux: parseInt(item.taux),
+}));
 
-const tassesGCData = [
-  { mois: "Janvier", tasses: 162000, sites: 42, moyenneSite: 3857 },
-  { mois: "Février", tasses: 165000, sites: 43, moyenneSite: 3837 },
-  { mois: "Mars", tasses: 168000, sites: 44, moyenneSite: 3818 },
-  { mois: "Avril", tasses: 172000, sites: 45, moyenneSite: 3822 },
-  { mois: "Mai", tasses: 175000, sites: 46, moyenneSite: 3804 },
-  { mois: "Juin", tasses: 178000, sites: 47, moyenneSite: 3787 },
-];
+// Table data (already in correct format in mock)
+const arrTableData = mockData.arr.evolution;
+const tassesGCData = mockData.tasses_mensuelles.details;
+const adoptionTableData = mockData.adoption_interne.par_client;
+const margeTableData = mockData.marge_client.details;
+const ococGCData = mockData.ococ_client.details;
 
-const adoptionTableData = [
-  { client: "Client A", collaborateurs: 1200, actifs: 936, taux: "78%" },
-  { client: "Client B", collaborateurs: 800, actifs: 520, taux: "65%" },
-  { client: "Client C", collaborateurs: 2500, actifs: 2300, taux: "92%" },
-  { client: "Client D", collaborateurs: 450, actifs: 243, taux: "54%" },
-  { client: "Client E", collaborateurs: 1800, actifs: 1584, taux: "88%" },
-];
-
-const margeTableData = [
-  { client: "Client A", ca: 245000, marge: 83300, tauxMarge: "34%" },
-  { client: "Client B", ca: 180000, marge: 59400, tauxMarge: "33%" },
-  { client: "Client C", ca: 520000, marge: 182000, tauxMarge: "35%" },
-  { client: "Client D", ca: 95000, marge: 30400, tauxMarge: "32%" },
-  { client: "Client E", ca: 320000, marge: 112000, tauxMarge: "35%" },
-];
-
-const ococGCData = [
-  { client: "Client A", tasses: 28000, ococ: 280, arbres: 64 },
-  { client: "Client B", tasses: 18500, ococ: 185, arbres: 42 },
-  { client: "Client C", tasses: 52000, ococ: 520, arbres: 119 },
-  { client: "Client D", tasses: 9200, ococ: 92, arbres: 21 },
-  { client: "Client E", tasses: 34000, ococ: 340, arbres: 78 },
-];
-
-export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewProps) {
+export function GrandsComptesView({
+  filters,
+  isComparing,
+}: GrandsComptesViewProps) {
   const [arrModalOpen, setArrModalOpen] = useState(false);
   const [adoptionModalOpen, setAdoptionModalOpen] = useState(false);
 
@@ -88,16 +72,20 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <BaseKpiCard
             label="ARR"
-            value="2,98M€"
-            previousValue="2,75M€"
-            trend={8.2}
+            value={`${(mockData.arr.current / 1000000).toFixed(2)}M€`}
+            previousValue={`${(mockData.arr.previous / 1000000).toFixed(2)}M€`}
+            trend={mockData.arr.trend}
             icon={<Euro className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
             tableTitle="Évolution ARR"
             tableColumns={[
               { key: "mois", label: "Mois" },
-              { key: "arr", label: "ARR", format: (v) => `${((v || 0) / 1000000).toFixed(2)}M€` },
+              {
+                key: "arr",
+                label: "ARR",
+                format: (v) => `${((v || 0) / 1000000).toFixed(2)}M€`,
+              },
               { key: "variation", label: "Variation" },
               { key: "clients", label: "Clients" },
             ]}
@@ -105,26 +93,34 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
           />
           <BaseKpiCard
             label="Tasses / mois"
-            value="178k"
-            previousValue="165k"
-            trend={5.9}
+            value={`${(mockData.tasses_mensuelles.current / 1000).toFixed(0)}k`}
+            previousValue={`${(mockData.tasses_mensuelles.previous / 1000).toFixed(0)}k`}
+            trend={mockData.tasses_mensuelles.trend}
             icon={<Coffee className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
             tableTitle="Consommation mensuelle"
             tableColumns={[
               { key: "mois", label: "Mois" },
-              { key: "tasses", label: "Tasses", format: (v) => (v || 0).toLocaleString() },
+              {
+                key: "tasses",
+                label: "Tasses",
+                format: (v) => (v || 0).toLocaleString(),
+              },
               { key: "sites", label: "Sites" },
-              { key: "moyenneSite", label: "Moy/site", format: (v) => (v || 0).toLocaleString() },
+              {
+                key: "moyenneSite",
+                label: "Moy/site",
+                format: (v) => (v || 0).toLocaleString(),
+              },
             ]}
             tableData={tassesGCData}
           />
           <BaseKpiCard
             label="Adoption interne"
-            value="72%"
-            previousValue="68%"
-            trend={3.4}
+            value={`${mockData.adoption_interne.current}%`}
+            previousValue={`${mockData.adoption_interne.previous}%`}
+            trend={mockData.adoption_interne.trend}
             icon={<Users className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
@@ -139,33 +135,45 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
           />
           <BaseKpiCard
             label="Marge / client"
-            value="34%"
-            previousValue="33%"
-            trend={1.2}
+            value={`${mockData.marge_client.current}%`}
+            previousValue={`${mockData.marge_client.previous}%`}
+            trend={mockData.marge_client.trend}
             icon={<Target className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
             tableTitle="Marge par client"
             tableColumns={[
               { key: "client", label: "Client" },
-              { key: "ca", label: "CA", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
-              { key: "marge", label: "Marge", format: (v) => `${((v || 0) / 1000).toFixed(0)}k€` },
+              {
+                key: "ca",
+                label: "CA",
+                format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
+              },
+              {
+                key: "marge",
+                label: "Marge",
+                format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
+              },
               { key: "tauxMarge", label: "Taux" },
             ]}
             tableData={margeTableData}
           />
           <BaseKpiCard
             label="€ OCOC / client"
-            value="842€"
-            previousValue="748€"
-            trend={12.5}
+            value={`${mockData.ococ_client.current}€`}
+            previousValue={`${mockData.ococ_client.previous}€`}
+            trend={mockData.ococ_client.trend}
             icon={<Building2 className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
             tableTitle="Impact OCOC par client"
             tableColumns={[
               { key: "client", label: "Client" },
-              { key: "tasses", label: "Tasses", format: (v) => (v || 0).toLocaleString() },
+              {
+                key: "tasses",
+                label: "Tasses",
+                format: (v) => (v || 0).toLocaleString(),
+              },
               { key: "ococ", label: "€ OCOC", format: (v) => `${v}€` },
               { key: "arbres", label: "Arbres" },
             ]}
@@ -182,14 +190,24 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Évolution ARR</h3>
-            <span className="text-xs text-muted-foreground underline">Voir tableau</span>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={revenueData}>
               <defs>
                 <linearGradient id="colorArr" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(220, 55%, 35%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(220, 55%, 35%)" stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor="hsl(220, 55%, 35%)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="hsl(220, 55%, 35%)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
@@ -197,7 +215,9 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
               <YAxis
                 stroke="hsl(25, 15%, 45%)"
                 fontSize={12}
-                tickFormatter={(value) => `${((value || 0) / 1000000).toFixed(1)}M€`}
+                tickFormatter={(value) =>
+                  `${((value || 0) / 1000000).toFixed(1)}M€`
+                }
               />
               <Tooltip
                 contentStyle={{
@@ -205,7 +225,10 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
                   border: "1px solid hsl(35, 20%, 88%)",
                   borderRadius: "0.75rem",
                 }}
-                formatter={(value: number) => [`${((value || 0) / 1000000).toFixed(2)}M€`, "ARR"]}
+                formatter={(value: number) => [
+                  `${((value || 0) / 1000000).toFixed(2)}M€`,
+                  "ARR",
+                ]}
               />
               <Area
                 type="monotone"
@@ -224,14 +247,29 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
           onClick={() => setAdoptionModalOpen(true)}
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Taux d'adoption par client</h3>
-            <span className="text-xs text-muted-foreground underline">Voir tableau</span>
+            <h3 className="text-lg font-semibold">
+              Taux d'adoption par client
+            </h3>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={adoptionData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
-              <XAxis type="number" domain={[0, 100]} stroke="hsl(25, 15%, 45%)" fontSize={12} />
-              <YAxis dataKey="client" type="category" stroke="hsl(25, 15%, 45%)" fontSize={12} width={80} />
+              <XAxis
+                type="number"
+                domain={[0, 100]}
+                stroke="hsl(25, 15%, 45%)"
+                fontSize={12}
+              />
+              <YAxis
+                dataKey="client"
+                type="category"
+                stroke="hsl(25, 15%, 45%)"
+                fontSize={12}
+                width={80}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "hsl(40, 25%, 99%)",
@@ -240,14 +278,18 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
                 }}
                 formatter={(value: number) => [`${value}%`, "Adoption"]}
               />
-              <Bar dataKey="taux" fill="hsl(220, 55%, 35%)" radius={[0, 4, 4, 0]} />
+              <Bar
+                dataKey="taux"
+                fill="hsl(220, 55%, 35%)"
+                radius={[0, 4, 4, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div >
+      </div>
 
       {/* KPIs secondaires */}
-      < div >
+      <div>
         <h3 className="text-lg font-semibold mb-4">Opérations & Marketing</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SimpleKpiCard
@@ -259,7 +301,11 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
             tableColumns={[
               { key: "region", label: "Région" },
               { key: "sites", label: "Sites" },
-              { key: "tasses", label: "Tasses/mois", format: (v) => (v || 0).toLocaleString() },
+              {
+                key: "tasses",
+                label: "Tasses/mois",
+                format: (v) => (v || 0).toLocaleString(),
+              },
             ]}
             tableData={[
               { region: "Île-de-France", sites: 18, tasses: 72000 },
@@ -282,8 +328,18 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
               { key: "taux", label: "Taux" },
             ]}
             tableData={[
-              { type: "Maintenance préventive", total: 120, respectes: 118, taux: "98%" },
-              { type: "Dépannage urgent", total: 45, respectes: 40, taux: "89%" },
+              {
+                type: "Maintenance préventive",
+                total: 120,
+                respectes: 118,
+                taux: "98%",
+              },
+              {
+                type: "Dépannage urgent",
+                total: 45,
+                respectes: 40,
+                taux: "89%",
+              },
               { type: "Installation", total: 8, respectes: 8, taux: "100%" },
               { type: "Réassort", total: 180, respectes: 168, taux: "93%" },
             ]}
@@ -322,22 +378,29 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
               { client: "TechCorp", secteur: "IT", date: "Jan 2024" },
               { client: "BankPlus", secteur: "Finance", date: "Fév 2024" },
               { client: "HealthFirst", secteur: "Santé", date: "Mar 2024" },
-              { client: "RetailMax", secteur: "Distribution", date: "Avr 2024" },
+              {
+                client: "RetailMax",
+                secteur: "Distribution",
+                date: "Avr 2024",
+              },
             ]}
           />
         </div>
-      </div >
+      </div>
 
       {/* Modals for charts */}
-      < DataTableModal
+      <DataTableModal
         open={arrModalOpen}
         onOpenChange={setArrModalOpen}
         title="Données ARR"
-        columns={
-          [
-            { key: "month", label: "Mois" },
-            { key: "arr", label: "ARR", format: (v) => `${((v || 0) / 1000000).toFixed(2)}M€` },
-          ]}
+        columns={[
+          { key: "month", label: "Mois" },
+          {
+            key: "arr",
+            label: "ARR",
+            format: (v) => `${((v || 0) / 1000000).toFixed(2)}M€`,
+          },
+        ]}
         data={revenueData}
         variant="gc"
       />
@@ -352,9 +415,6 @@ export function GrandsComptesView({ filters, isComparing }: GrandsComptesViewPro
         data={adoptionData}
         variant="gc"
       />
-    </div >
+    </div>
   );
 }
-
-
-
