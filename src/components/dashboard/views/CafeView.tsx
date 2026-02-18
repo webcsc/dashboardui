@@ -2,6 +2,7 @@ import { useModalState } from "@/hooks/useModalState";
 import { useMemo, useState, useEffect } from "react";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { Coffee, Bean, Package, Droplets } from "lucide-react";
+import { subMonths } from "date-fns";
 import {
   PieChart,
   Pie,
@@ -31,7 +32,7 @@ import {
 } from "@/lib/dashboard-utils";
 import { DataTableModal } from "../modals/DataTableModal";
 import { Switch } from "@/components/ui/switch";
-import { formatPrice, formatWeight } from "@/lib";
+import { formatPrice, formatWeight, getMonthDuration } from "@/lib";
 import { CafeMonthData, DistributionItem } from "@/services/dashboard-api";
 import { UniverseViewSkeleton } from "../skeletons";
 import { renderProductView } from "@/lib/product-view-helpers";
@@ -74,11 +75,8 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
   const { data: modalOverviewResponse } = useOverview("cafe", modalFilters, {
     enabled: isAnyOpen,
   });
-  const { data: modalEvolutionResponse } = useEvolution<CafeMonthData>(
-    "cafe",
-    modalFilters,
-    { enabled: isAnyOpen },
-  );
+  // Removed duplicate modalEvolutionResponse fetch here. It is fetched later with modalEvolutionFilters.
+
   const {
     data: modalDistributionResponse,
     isFetching: isFetchingModalDistribution,
@@ -92,16 +90,47 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     [modalDistributionResponse],
   );
 
+  const evolutionLimit = useMemo(() => {
+    if (!filters.period.start || !filters.period.end) return 12;
+    // Force au moins 12 mois, ou prend la durée réelle si > 12
+    return Math.max(
+      12,
+      getMonthDuration(filters.period.start, filters.period.end),
+    );
+  }, [filters.period]);
+
+  const evolutionFilters = useMemo(() => {
+    if (evolutionLimit > 12) return filters;
+    const end = filters.period.end;
+    const start = subMonths(end, 11);
+    start.setDate(1);
+    return { ...filters, period: { start, end } };
+  }, [filters, evolutionLimit]);
+
+  const modalEvolutionFilters = useMemo(() => {
+    if (evolutionLimit > 12) return modalFilters;
+    const end = modalFilters.period.end;
+    const start = subMonths(end, 11);
+    start.setDate(1);
+    return { ...modalFilters, period: { start, end } };
+  }, [modalFilters, evolutionLimit]);
+
+  const { data: modalEvolutionResponse } = useEvolution<CafeMonthData>(
+    "cafe",
+    modalEvolutionFilters,
+    { enabled: isAnyOpen },
+  );
+
   const modalEvolutionData = useMemo(
     () =>
       transformEvolutionData(
         modalEvolutionResponse?.data,
         filters.period.start.getFullYear().toString(),
-        12, // Limit to 12 months
+        evolutionLimit,
         false, // includeFuture
         filters.period, // Pass period for highlighting
       ),
-    [modalEvolutionResponse, filters.period],
+    [modalEvolutionResponse, filters.period, evolutionLimit],
   );
 
   // Fetch API Data
@@ -114,7 +143,7 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
     data: evolutionResponse,
     isLoading: isLoadingEvolution,
     isFetching: isFetchingEvolution,
-  } = useEvolution<CafeMonthData>("cafe", filters);
+  } = useEvolution<CafeMonthData>("cafe", evolutionFilters);
   const {
     data: distributionResponse,
     isLoading: isLoadingDistribution,
@@ -178,20 +207,20 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
       transformEvolutionData<CafeMonthData>(
         evolution,
         currentYear,
-        12,
+        evolutionLimit,
         isCurrentYear,
         filters.period,
       ),
-    [evolution, currentYear, isCurrentYear, filters.period],
+    [evolution, currentYear, evolutionLimit, isCurrentYear, filters.period],
   );
   // KPI Values
-  const caTotal = Number(overview?.ca_total_ht_global || 0) || 0;
+  const caTotal = Number(overview?.ca_total_ht_cafe || 0) || 0;
   const volumeTotal = Number(overview?.volume_total_cafe || 0) || 0;
   const partB2B = Number(overview?.part_b2b || 0) || 0;
   const prixMoyen = Number(overview?.average_price_per_kg || 0) || 0;
 
-  const caTotalPrev = compareOverview?.ca_total_ht_global;
-  const volumeTotalPrev = compareOverview?.volume_total_global;
+  const caTotalPrev = compareOverview?.ca_total_ht_cafe;
+  const volumeTotalPrev = compareOverview?.volume_total_cafe;
   const partB2BPrev = compareOverview?.part_b2b;
   const prixMoyenPrev = compareOverview?.average_price_per_kg;
 
@@ -506,14 +535,14 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           {
             segment: "B2B",
             ca:
-              (Number(modalOverview?.ca_total_ht_global) || 0) *
+              (Number(modalOverview?.ca_total_ht_cafe) || 0) *
               ((Number(modalOverview?.part_b2b) || 0) / 100),
             part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
           },
           {
             segment: "B2C / Particuliers",
             ca:
-              (Number(modalOverview?.ca_total_ht_global) || 0) *
+              (Number(modalOverview?.ca_total_ht_cafe) || 0) *
               (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
             part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
           },
@@ -540,14 +569,14 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
           {
             segment: "B2B",
             volume:
-              (Number(modalOverview?.volume_total_global) || 0) *
+              (Number(modalOverview?.volume_total_cafe) || 0) *
               ((Number(modalOverview?.part_b2b) || 0) / 100),
             part: `${(Number(modalOverview?.part_b2b) || 0).toFixed(1)}%`,
           },
           {
             segment: "B2C / Particuliers",
             volume:
-              (Number(modalOverview?.volume_total_global) || 0) *
+              (Number(modalOverview?.volume_total_cafe) || 0) *
               (1 - (Number(modalOverview?.part_b2b) || 0) / 100),
             part: `${(100 - (Number(modalOverview?.part_b2b) || 0)).toFixed(1)}%`,
           },

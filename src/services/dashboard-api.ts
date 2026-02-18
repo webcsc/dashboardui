@@ -315,11 +315,10 @@ export async function fetchEvolution<T>(
 
   // Format dates YYYY-MM-DD
   if (filters.period) {
-    // Always fetch 12 months history for evolution charts (rolling window)
-    // regardless of the selected start date (which might be just the current month)
-    const adjustedStartDate = subMonths(filters.period.end, 11);
-
-    queryParams.append("date_start", format(adjustedStartDate, "yyyy-MM-dd"));
+    queryParams.append(
+      "date_start",
+      format(filters.period.start, "yyyy-MM-dd"),
+    );
     queryParams.append("date_end", format(filters.period.end, "yyyy-MM-dd"));
   }
 

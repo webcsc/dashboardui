@@ -563,7 +563,10 @@ export function DataTableModal({
             <TableHeader>
               <TableRow className={variantStyles[variant]}>
                 {columns.map((col) => (
-                  <TableHead key={col.key} className="font-semibold">
+                  <TableHead
+                    key={col.key}
+                    className="font-semibold text-center"
+                  >
                     {col.label}
                   </TableHead>
                 ))}
@@ -575,7 +578,7 @@ export function DataTableModal({
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={`skeleton-${index}`}>
                     {columns.map((col) => (
-                      <TableCell key={col.key}>
+                      <TableCell key={col.key} className="text-center">
                         <div className="h-4 bg-muted animate-pulse rounded" />
                       </TableCell>
                     ))}
@@ -594,10 +597,14 @@ export function DataTableModal({
                 filteredData.map((row, index) => (
                   <TableRow key={index} className="hover:bg-muted/50">
                     {columns.map((col) => (
-                      <TableCell key={col.key}>
+                      <TableCell key={col.key} className="text-center">
                         {col.format
-                          ? col.format(Number(row[col.key]))
-                          : row[col.key]}
+                          ? isNaN(Number(row[col.key]))
+                            ? "-"
+                            : col.format(Number(row[col.key]))
+                          : String(row[col.key]) === "NaN"
+                            ? "-"
+                            : row[col.key]}
                       </TableCell>
                     ))}
                   </TableRow>

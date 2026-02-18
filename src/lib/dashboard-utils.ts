@@ -159,6 +159,8 @@ export const transformEvolutionData = <T>(
     yearKeys.sort();
   }
 
+  // Determine if we should show year in labels
+  // Show year if data spans multiple years OR if the single year shown is not the current year
   const isMoreAYear =
     yearKeys.length > 1 || yearKeys.some((y) => y !== currentYear);
 

@@ -20,7 +20,7 @@ import {
 import { useModalState } from "@/hooks/useModalState";
 import { DataTableModal } from "../modals/DataTableModal";
 import { useState, useEffect } from "react";
-import { formatPrice, formatWeight } from "@/lib";
+import { formatPrice, formatWeight, getMonthDuration } from "@/lib";
 import { RecapUniversSkeleton } from "../skeletons";
 
 interface RecapUniversViewProps {
@@ -78,9 +78,18 @@ export function RecapUniversView({
     enabled: isComparing && !!filters.comparePeriod,
   });
 
-  // Fetch 12-month rolling window data for the chart
+  // Fetch 12-month rolling window data OR full period if > 12 months for the chart
   const trendFilters = useMemo(() => {
-    if (!filters.period) return filters;
+    if (!filters.period.start || !filters.period.end) return filters;
+
+    const duration = getMonthDuration(filters.period.start, filters.period.end);
+
+    // If duration > 12 months, use the full selected period
+    if (duration > 12) {
+      return filters;
+    }
+
+    // Otherwise, force 12 months rolling window
     const end = filters.period.end;
     const start = subMonths(end, 11);
     // Align start to beginning of month to be safe
@@ -93,7 +102,18 @@ export function RecapUniversView({
   }, [filters]);
 
   const trendComparisonFilters = useMemo(() => {
-    if (!comparisonFilters?.period) return null;
+    if (!comparisonFilters?.period?.start || !comparisonFilters?.period?.end)
+      return null;
+
+    const duration = getMonthDuration(
+      comparisonFilters.period.start,
+      comparisonFilters.period.end,
+    );
+
+    if (duration > 12) {
+      return comparisonFilters;
+    }
+
     const end = comparisonFilters.period.end;
     const start = subMonths(end, 11);
     start.setDate(1);
@@ -159,13 +179,16 @@ export function RecapUniversView({
     // Align to start of month
     current.setDate(1);
 
+    // Check if period spans multiple years
+    const isMultiYear = startYear !== endYear;
+
     while (current <= end) {
       const year = current.getFullYear().toString();
       const month = MONTH_ORDER[current.getMonth()];
-      const label =
-        current.getFullYear() !== startYear && current.getMonth() === 0
-          ? `${FRENCH_MONTHS[month]} ${year.substring(2)}`
-          : FRENCH_MONTHS[month] || month.substring(0, 3);
+      // If multi-year, always include year to avoid confusion (e.g. Jan 2023 vs Jan 2024)
+      const label = isMultiYear
+        ? `${FRENCH_MONTHS[month]} ${year}`
+        : FRENCH_MONTHS[month] || month.substring(0, 3);
 
       periodKeys.push({
         year,

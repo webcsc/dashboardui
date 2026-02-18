@@ -137,3 +137,15 @@ export function getPeriodDurationInDays(period: DateRange): number {
   const diffTime = Math.abs(period.end.getTime() - period.start.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * Calcule le nombre de mois entre deux dates (inclusif).
+ * Exemple: Jan à Mars = 3 mois
+ */
+export const getMonthDuration = (start: Date, end: Date): number => {
+  return (
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    (end.getMonth() - start.getMonth()) +
+    1
+  );
+};

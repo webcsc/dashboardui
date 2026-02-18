@@ -2,6 +2,7 @@ import { useModalState } from "@/hooks/useModalState";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { useMemo } from "react";
 import { Settings, ShoppingCart, Shield, Droplets } from "lucide-react";
+import { subMonths } from "date-fns";
 import {
   BarChart,
   Bar,
@@ -24,7 +25,7 @@ import { useViewFilters, useComparisonHelpers } from "@/hooks";
 import { DataTableModal } from "../modals/DataTableModal";
 import { transformEquipementEvolution } from "@/lib/dashboard-utils";
 import { useState, useEffect } from "react";
-import { formatPrice } from "@/lib";
+import { formatPrice, getMonthDuration } from "@/lib";
 import { EquipementMonthData } from "@/services/dashboard-api";
 import { UniverseViewSkeleton } from "../skeletons";
 import { EquipementProductMap } from "@/types/products";
@@ -67,11 +68,22 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
     isLoading: isLoadingOverview,
     isFetching: isFetchingOverview,
   } = useOverview("equipement", filters);
+
+  const evolutionFilters = useMemo(() => {
+    // Calculer la durée pour savoir si on doit étendre la période
+    const duration = getMonthDuration(filters.period.start, filters.period.end);
+    if (duration > 12) return filters;
+    const end = filters.period.end;
+    const start = subMonths(end, 11);
+    start.setDate(1);
+    return { ...filters, period: { start, end } };
+  }, [filters]);
+
   const {
     data: evolutionResponse,
     isLoading: isLoadingEvolution,
     isFetching: isFetchingEvolution,
-  } = useEvolution<EquipementMonthData>("equipement", filters);
+  } = useEvolution<EquipementMonthData>("equipement", evolutionFilters);
   const { data: productsResponse } = useProducts<EquipementProductMap>(
     "equipement",
     filters,
@@ -83,8 +95,21 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
     modalFilters,
     { enabled: isAnyOpen },
   );
+
+  const modalEvolutionFilters = useMemo(() => {
+    const duration = getMonthDuration(
+      modalFilters.period.start,
+      modalFilters.period.end,
+    );
+    if (duration > 12) return modalFilters;
+    const end = modalFilters.period.end;
+    const start = subMonths(end, 11);
+    start.setDate(1);
+    return { ...modalFilters, period: { start, end } };
+  }, [modalFilters]);
+
   const { data: modalEvolutionResponse, isFetching: isFetchingModalEvolution } =
-    useEvolution<EquipementMonthData>("equipement", modalFilters, {
+    useEvolution<EquipementMonthData>("equipement", modalEvolutionFilters, {
       enabled: isAnyOpen,
     });
 
@@ -120,27 +145,41 @@ export function EquipementView({ filters, isComparing }: EquipementViewProps) {
     filters.period.start.getMonth() === 0 &&
     filters.period.end.getMonth() === 11;
 
+  const evolutionLimit = useMemo(() => {
+    if (!filters.period.start || !filters.period.end) return 12;
+    return Math.max(
+      12,
+      getMonthDuration(filters.period.start, filters.period.end),
+    );
+  }, [filters.period]);
+
   const evolutionData = useMemo(
     () =>
       transformEquipementEvolution(
         evolution,
         currentYear,
-        12,
+        evolutionLimit,
         isCurrentYear,
         filters.period,
       ),
-    [evolution, currentYear, isCurrentYear, filters.period],
+    [evolution, currentYear, evolutionLimit, isCurrentYear, filters.period],
   );
   const modalEvolutionData = useMemo(
     () =>
       transformEquipementEvolution(
         modalEvolution,
         currentYear,
-        12,
+        evolutionLimit,
         isCurrentYear,
         filters.period,
       ),
-    [modalEvolution, currentYear, isCurrentYear, filters.period],
+    [
+      modalEvolution,
+      currentYear,
+      evolutionLimit,
+      isCurrentYear,
+      filters.period,
+    ],
   );
 
   const renderBarCells = (color: string) => {

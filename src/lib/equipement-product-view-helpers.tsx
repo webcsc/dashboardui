@@ -155,7 +155,7 @@ export function renderEquipementProductView({
               return (
                 <span className={colorClass}>
                   {v > 0 ? "+" : ""}
-                  {v.toFixed(1)}%
+                  {v.toFixed(2)}%
                 </span>
               );
             },
@@ -194,7 +194,7 @@ export function renderEquipementProductView({
               return (
                 <span className={colorClass}>
                   {v > 0 ? "+" : ""}
-                  {v.toFixed(1)}%
+                  {v.toFixed(2)}%
                 </span>
               );
             },
@@ -277,12 +277,12 @@ export function renderEquipementProductView({
       category === "Location Machines" &&
       subCategory === "Location Accessoires"
     ) {
-      modalDataPath = ["Location Accessoires", "Location Accessoires"];
+      modalDataPath = ["Location Accessoires", "Typologie"];
     } else if (
       category === "Vente Machines" &&
       subCategory === "Vente Accessoires"
     ) {
-      modalDataPath = ["Vente Accessoires", "Vente Accessoires"];
+      modalDataPath = ["Vente Accessoires", "Typologie"];
     }
 
     // Also handle Typologie injection?

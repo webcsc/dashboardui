@@ -2,6 +2,7 @@ import { useModalState } from "@/hooks/useModalState";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
 import { useMemo } from "react";
 import { Wrench, RefreshCw, ArrowRightLeft, Settings } from "lucide-react";
+import { subMonths } from "date-fns";
 import {
   BarChart,
   Bar,
@@ -31,7 +32,7 @@ import {
   groupDistributionData,
 } from "@/lib/dashboard-utils";
 import { useState, useEffect } from "react";
-import { formatPrice } from "@/lib";
+import { formatPrice, getMonthDuration } from "@/lib";
 import { ServiceMonthData } from "@/services/dashboard-api";
 import { UniverseViewSkeleton } from "../skeletons";
 import { EquipementProductMap } from "@/types/products";
@@ -135,11 +136,21 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
     isLoading: isLoadingOverview,
     isFetching: isFetchingOverview,
   } = useOverview("service", filters);
+
+  const evolutionFilters = useMemo(() => {
+    const duration = getMonthDuration(filters.period.start, filters.period.end);
+    if (duration > 12) return filters;
+    const end = filters.period.end;
+    const start = subMonths(end, 11);
+    start.setDate(1);
+    return { ...filters, period: { start, end } };
+  }, [filters]);
+
   const {
     data: evolutionResponse,
     isLoading: isLoadingEvolution,
     isFetching: isFetchingEvolution,
-  } = useEvolution<ServiceMonthData>("service", filters);
+  } = useEvolution<ServiceMonthData>("service", evolutionFilters);
   const {
     data: distributionResponse,
     isLoading: isLoadingDistribution,
@@ -148,9 +159,22 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   const { data: modalOverviewResponse } = useOverview("service", modalFilters, {
     enabled: isAnyOpen,
   });
+
+  const modalEvolutionFilters = useMemo(() => {
+    const duration = getMonthDuration(
+      modalFilters.period.start,
+      modalFilters.period.end,
+    );
+    if (duration > 12) return modalFilters;
+    const end = modalFilters.period.end;
+    const start = subMonths(end, 11);
+    start.setDate(1);
+    return { ...modalFilters, period: { start, end } };
+  }, [modalFilters]);
+
   const { data: modalEvolutionResponse } = useEvolution<ServiceMonthData>(
     "service",
-    modalFilters,
+    modalEvolutionFilters,
     { enabled: isAnyOpen },
   );
   const {
@@ -205,27 +229,41 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
     filters.period.start.getMonth() === 0 &&
     filters.period.end.getMonth() === 11;
 
+  const evolutionLimit = useMemo(() => {
+    if (!filters.period.start || !filters.period.end) return 12;
+    return Math.max(
+      12,
+      getMonthDuration(filters.period.start, filters.period.end),
+    );
+  }, [filters.period]);
+
   const evolutionData = useMemo(
     () =>
       transformServiceEvolution(
         evolution,
         currentYear,
-        12,
+        evolutionLimit,
         isCurrentYear,
         filters.period,
       ),
-    [evolution, currentYear, isCurrentYear, filters.period],
+    [evolution, currentYear, evolutionLimit, isCurrentYear, filters.period],
   );
   const modalEvolutionData = useMemo(
     () =>
       transformServiceEvolution(
         modalEvolution,
         currentYear,
-        12,
+        evolutionLimit,
         isCurrentYear,
         filters.period,
       ),
-    [modalEvolution, currentYear, isCurrentYear, filters.period],
+    [
+      modalEvolution,
+      currentYear,
+      evolutionLimit,
+      isCurrentYear,
+      filters.period,
+    ],
   );
   const caTotal = overview?.ca_total_ht_global || 0;
   const modalCaTotal = modalOverview?.ca_total_ht_global || 0;

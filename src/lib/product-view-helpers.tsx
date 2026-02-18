@@ -183,7 +183,7 @@ export function renderProductView({
             return (
               <span className={colorClass}>
                 {v > 0 ? "+" : ""}
-                {v.toFixed(1)}%
+                {v.toFixed(2)}%
               </span>
             );
           },
@@ -222,7 +222,7 @@ export function renderProductView({
             return (
               <span className={colorClass}>
                 {v > 0 ? "+" : ""}
-                {v.toFixed(1)}%
+                {v.toFixed(2)}%
               </span>
             );
           },
