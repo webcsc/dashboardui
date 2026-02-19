@@ -183,6 +183,7 @@ export interface ConsommableOverview extends BaseUniverseOverview {
   count_b2b: number;
   count_b2c: number;
   count_product: number;
+  total_quantity: number;
   part_b2b: number;
   part_b2c: number;
   average_price_per_kg: number;

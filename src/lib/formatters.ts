@@ -98,6 +98,17 @@ const roundUp = (value: number, decimals: number): number => {
 };
 
 /**
+ * Arrondi standard (0.5 arrondi au supérieur)
+ * @param value - Valeur à arrondir
+ * @param decimals - Nombre de décimales
+ * @returns Valeur arrondie
+ */
+const roundStandard = (value: number, decimals: number): number => {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+};
+
+/**
  * Formate une valeur monétaire avec arrondi "vers le haut" et suffixe k€ ou M€
  *
  * @param value - Valeur à formater
@@ -179,7 +190,7 @@ export function formatWeight(
   if (abs === 0) return "-";
   // Tonnes
   if (abs >= thresholdKg) {
-    const t = roundUp(abs / KG_PER_TONNE, decimals);
+    const t = roundStandard(abs / KG_PER_TONNE, decimals);
     return `${sign}${t.toLocaleString("fr-FR", {
       minimumFractionDigits: 0,
       maximumFractionDigits: decimals,
@@ -188,7 +199,7 @@ export function formatWeight(
 
   // < 1 kg
   if (abs < 1) {
-    const v = roundUp(abs, decimals);
+    const v = roundStandard(abs, decimals);
     return `${sign}${v.toLocaleString("fr-FR", {
       minimumFractionDigits: 0,
       maximumFractionDigits: decimals,
@@ -196,7 +207,7 @@ export function formatWeight(
   }
 
   // ≥ 1 kg
-  const v = roundUp(abs, decimals);
+  const v = roundStandard(abs, decimals);
   return `${sign}${v.toLocaleString("fr-FR", {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,

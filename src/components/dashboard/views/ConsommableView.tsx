@@ -308,8 +308,8 @@ export function ConsommableView({
       .sort((a, b) => b.ca - a.ca);
   }, [modalProducts, modalCaDivers]);
 
-  const nbRefs = overview?.count_product || 0;
-  const nbRefsPrev = compareOverview?.count_product;
+  const nbRefs = overview?.total_quantity || 0;
+  const nbRefsPrev = compareOverview?.total_quantity;
 
   const renderCustomBarCell = (activeColor: string, inactiveColor: string) => {
     return evolutionData.map((entry, index) => (
