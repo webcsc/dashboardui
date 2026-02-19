@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   BarChart3,
   Box,
+  Droplets,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +22,13 @@ interface SegmentTabsProps {
 type GroupType = "kpi" | "univers";
 
 const KPI_TABS = ["recap-kpi", "gc", "pp", "b2c"];
-const UNIVERS_TABS = ["recap-univers", "cafe", "equipement", "service"];
+const UNIVERS_TABS = [
+  "recap-univers",
+  "cafe",
+  "Thé & Divers",
+  "equipement",
+  "service",
+];
 
 export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
   const [activeGroup, setActiveGroup] = useState<GroupType>(() => {
@@ -117,7 +124,7 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
         </Tabs>
       ) : (
         <Tabs value={value} onValueChange={onValueChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-11 bg-secondary/50">
+          <TabsList className="grid w-full grid-cols-5 h-11 bg-secondary/50">
             <TabsTrigger
               value="recap-univers"
               className="flex items-center gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm"
@@ -131,7 +138,16 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
               className="flex items-center gap-1.5 data-[state=active]:bg-universe-cafe data-[state=active]:text-white text-xs sm:text-sm"
             >
               <Coffee className="h-4 w-4" />
-              <span>Café</span>
+              <span className="hidden sm:inline">Café</span>
+              <span className="sm:hidden">Café</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="the-divers"
+              className="flex items-center gap-1.5 data-[state=active]:bg-universe-thedivers data-[state=active]:text-white text-xs sm:text-sm"
+            >
+              <Droplets className="h-4 w-4" />
+              <span className="hidden sm:inline">Thé & Divers</span>
+              <span className="sm:hidden">Thé & Divers</span>
             </TabsTrigger>
             <TabsTrigger
               value="equipement"
@@ -146,7 +162,8 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
               className="flex items-center gap-1.5 data-[state=active]:bg-universe-service data-[state=active]:text-white text-xs sm:text-sm"
             >
               <Wrench className="h-4 w-4" />
-              <span>Service</span>
+              <span className="hidden sm:inline">Service</span>
+              <span className="sm:hidden">Service</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>

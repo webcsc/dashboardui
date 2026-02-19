@@ -23,7 +23,7 @@ interface ProductCategorySectionProps {
   icon?: ReactNode;
   columns: TableColumn[];
   data: Record<string, number | string>[];
-  variant?: "cafe" | "equipement" | "service";
+  variant?: "cafe" | "equipement" | "service" | "thedivers";
   compact?: boolean;
   clientId?: string;
   onClientChange?: (id: string) => void;
@@ -48,6 +48,11 @@ const variantStyles = {
     headerBg: "bg-universe-service-light",
     headerText: "text-universe-service",
     borderColor: "border-universe-service/20",
+  },
+  thedivers: {
+    headerBg: "bg-universe-thedivers-light",
+    headerText: "text-universe-thedivers",
+    borderColor: "border-universe-thedivers/20",
   },
 };
 

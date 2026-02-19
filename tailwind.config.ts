@@ -3,7 +3,12 @@ import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   prefix: "",
   theme: {
     container: {
@@ -15,8 +20,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['DM Sans', 'sans-serif'],
-        display: ['Playfair Display', 'serif'],
+        sans: ["DM Sans", "sans-serif"],
+        display: ["Playfair Display", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -86,6 +91,10 @@ export default {
           service: {
             DEFAULT: "hsl(var(--universe-service))",
             light: "hsl(var(--universe-service-light))",
+          },
+          thedivers: {
+            DEFAULT: "hsl(var(--universe-thedivers))",
+            light: "hsl(var(--universe-thedivers-light))",
           },
         },
         sidebar: {

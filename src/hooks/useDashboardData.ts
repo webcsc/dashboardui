@@ -172,13 +172,18 @@ export function useSummary(
  * ```
  */
 export function useProducts<T = Product>(
-  view: "cafe" | "equipement" | "service",
+  view: "cafe" | "equipement" | "service" | "thedivers" | "consommable",
   filters: FilterState,
   options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: ["products", view, filters],
-    queryFn: () => fetchProducts<T>(view, filters),
+    queryFn: () =>
+      fetchProducts<T>(
+        view === "thedivers" || view === "consommable" ? "consommable" : view,
+        filters,
+      ),
+
     staleTime: CACHE_TIME.STALE_TIME,
     gcTime: CACHE_TIME.CACHE_TIME,
     retry: 3,

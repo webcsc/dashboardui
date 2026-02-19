@@ -1,5 +1,6 @@
 import { BaseKpiCard } from "../cards/BaseKpiCard";
-import { Coffee, Settings, Wrench, Euro } from "lucide-react";
+import { UniverseCard } from "../cards/UniverseCard";
+import { Coffee, Settings, Wrench, Euro, Droplets } from "lucide-react";
 import type { FilterState } from "@/types";
 import { useMemo } from "react";
 import { useSummary } from "@/hooks/useDashboardData";
@@ -142,12 +143,14 @@ export function RecapUniversView({
   const caTotal =
     (summary?.overview?.cafe?.ca_total_ht_global || 0) +
     (summary?.overview?.equipement?.ca_total_ht_global || 0) +
-    (summary?.overview?.service?.ca_total_ht_global || 0);
+    (summary?.overview?.service?.ca_total_ht_global || 0) +
+    (summary?.overview?.consommable?.ca_total_ht_global || 0);
 
   const compareCaTotal = compareSummary
     ? (compareSummary.overview?.cafe?.ca_total_ht_global || 0) +
       (compareSummary.overview?.equipement?.ca_total_ht_global || 0) +
-      (compareSummary.overview?.service?.ca_total_ht_global || 0)
+      (compareSummary.overview?.service?.ca_total_ht_global || 0) +
+      (compareSummary.overview?.consommable?.ca_total_ht_global || 0)
     : 0;
 
   // Calculate market share
@@ -220,25 +223,29 @@ export function RecapUniversView({
     const cafeData = trendSummary.evolution.cafe;
     const equipementData = trendSummary.evolution.equipement;
     const serviceData = trendSummary.evolution.service;
+    const consommableData = trendSummary.evolution.consommable;
 
     // Previous year data for comparison (if enabled)
     const cafePrevData = compareSummary?.evolution?.cafe;
     const equipementPrevData = compareSummary?.evolution?.equipement;
     const servicePrevData = compareSummary?.evolution?.service;
+    const consommablePrevData = compareSummary?.evolution?.consommable;
 
     return periodKeys.map(({ year, month, label, date }, index) => {
       let cafe = 0;
       let equipement = 0;
       let service = 0;
+      let consommable = 0;
       let cafePrev = 0;
       let equipementPrev = 0;
       let servicePrev = 0;
+      let consommablePrev = 0;
 
       // Cafe
       const cafeYearData = cafeData?.[year];
       if (cafeYearData?.[month]) {
-        // Handle both nested and direct structure
-        const mData = cafeYearData[month];
+        // Match new structure { cafe: { ca_total_ht: ... } }
+        const mData = cafeYearData[month] as any;
         cafe = mData?.cafe?.ca_total_ht || mData?.ca_total_ht || 0;
       }
 
@@ -272,12 +279,20 @@ export function RecapUniversView({
         }
       }
 
+      // Consommable
+      const consommableYearData = consommableData?.[year];
+      if (consommableYearData?.[month]) {
+        const mData = consommableYearData[month] as any;
+        consommable =
+          mData?.consommable?.ca_total_ht || mData?.ca_total_ht || 0;
+      }
+
       // Comparison Data
       if (isComparing && compareKeys[index]) {
         const { year: prevYear, month: prevMonth } = compareKeys[index];
 
         if (cafePrevData?.[prevYear]?.[prevMonth]) {
-          const mData = cafePrevData[prevYear][prevMonth];
+          const mData = cafePrevData[prevYear][prevMonth] as any;
           cafePrev = mData?.cafe?.ca_total_ht || mData?.ca_total_ht || 0;
         }
 
@@ -302,6 +317,12 @@ export function RecapUniversView({
             ),
           );
         }
+
+        if (consommablePrevData?.[prevYear]?.[prevMonth]) {
+          const mData = consommablePrevData[prevYear][prevMonth] as any;
+          consommablePrev =
+            mData?.consommable?.ca_total_ht || mData?.ca_total_ht || 0;
+        }
       }
 
       // Determine 'actif' state
@@ -325,11 +346,13 @@ export function RecapUniversView({
         cafe,
         equipement,
         service,
+        consommable,
         actif: isActive ? 1 : 0,
         ...(isComparing && {
           cafePrev,
           equipementPrev,
           servicePrev,
+          consommablePrev,
         }),
       };
     });
@@ -379,10 +402,15 @@ export function RecapUniversView({
 
     const monthlyData: Record<
       string,
-      { cafe: number; equipement: number; service: number }
+      { cafe: number; equipement: number; service: number; consommable: number }
     > = {};
     MONTH_ORDER.forEach((month) => {
-      monthlyData[month] = { cafe: 0, equipement: 0, service: 0 };
+      monthlyData[month] = {
+        cafe: 0,
+        equipement: 0,
+        service: 0,
+        consommable: 0,
+      };
     });
 
     // Process current period cafe evolution (object structure)
@@ -443,6 +471,29 @@ export function RecapUniversView({
       });
     }
 
+    // Process current period consommable evolution
+    const consommableEvolution =
+      modalSummary.evolution.consommable?.[currentYear];
+    if (consommableEvolution) {
+      Object.entries(consommableEvolution).forEach(([month, data]) => {
+        if (
+          month !== "total" &&
+          typeof data === "object" &&
+          data !== null &&
+          "consommable" in data &&
+          typeof data.consommable === "object" &&
+          data.consommable !== null &&
+          "ca_total_ht" in data.consommable
+        ) {
+          const monthIndex = MONTH_ORDER.indexOf(month);
+          if (monthIndex > -1) {
+            monthlyData[month].consommable = data.consommable
+              .ca_total_ht as number;
+          }
+        }
+      });
+    }
+
     return Object.entries(monthlyData)
       .sort(
         ([monthA], [monthB]) =>
@@ -453,6 +504,7 @@ export function RecapUniversView({
         cafe: data.cafe,
         equipement: data.equipement,
         service: data.service,
+        consommable: data.consommable,
       }));
   }, [modalSummary, currentYear]);
 
@@ -461,6 +513,7 @@ export function RecapUniversView({
     cafe: true,
     equipement: true,
     service: true,
+    consommable: true,
   });
 
   const handleLegendClick = (data: unknown) => {
@@ -491,7 +544,7 @@ export function RecapUniversView({
       </div>
 
       {/* Global KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <BaseKpiCard
           label="CA Total Univers"
           value={formatPrice(caTotal)}
@@ -511,6 +564,21 @@ export function RecapUniversView({
             compareSummary?.overview?.cafe?.ca_total_ht_global,
           )}
           icon={<Coffee className="h-5 w-5 text-universe-cafe" />}
+          showComparison={isComparing}
+        />
+        <BaseKpiCard
+          label="CA Thé & Divers "
+          value={formatPrice(
+            summary?.overview?.consommable?.ca_total_ht_global || 0,
+          )}
+          previousValue={getPreviousCurrencyValue(
+            compareSummary?.overview?.consommable?.ca_total_ht_global,
+          )}
+          trend={getTrend(
+            summary?.overview?.consommable?.ca_total_ht_global,
+            compareSummary?.overview?.consommable?.ca_total_ht_global,
+          )}
+          icon={<Droplets className="h-5 w-5 text-universe-thedivers" />}
           showComparison={isComparing}
         />
         <BaseKpiCard
@@ -546,148 +614,126 @@ export function RecapUniversView({
       </div>
 
       {/* Univers cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="kpi-card border-l-4 border-l-universe-cafe">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Coffee className="h-5 w-5 text-universe-cafe" />
-              <h3 className="font-semibold">Café</h3>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">CA Mensuel</span>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {formatPrice(
-                    summary?.overview?.cafe?.ca_total_ht_global || 0,
-                  )}
-                </span>
-                {isComparing && (
-                  <span className="text-xs text-muted-foreground">
-                    vs{" "}
-                    {getPreviousCurrencyValue(
-                      compareSummary?.overview?.cafe?.ca_total_ht_global,
-                    )}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Volume</span>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {formatWeight(
-                    summary?.overview?.cafe?.volume_total_global || 0,
-                  )}
-                </span>
-                {isComparing && (
-                  <span className="text-xs text-muted-foreground">
-                    {formatWeight(
-                      compareSummary?.overview?.cafe?.volume_total_global || 0,
-                    )}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">
-                Part de marché
-              </span>
-              <span className="font-semibold">{`${getMarketShare(summary?.overview?.cafe?.ca_total_ht_global || 0)}%`}</span>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <UniverseCard
+          title="Café"
+          icon={<Coffee className="h-5 w-5" />}
+          borderColorClass="border-l-universe-cafe"
+          iconColorClass="text-universe-cafe"
+          rows={[
+            {
+              label: "CA Mensuel",
+              value: formatPrice(
+                summary?.overview?.cafe?.ca_total_ht_cafe || 0,
+              ),
+              compareValue: `vs ${getPreviousCurrencyValue(
+                compareSummary?.overview?.cafe?.ca_total_ht_cafe,
+              )}`,
+              showComparison: isComparing,
+            },
+            {
+              label: "Volume",
+              value: formatWeight(
+                summary?.overview?.cafe?.volume_total_global || 0,
+              ),
+              compareValue: formatWeight(
+                compareSummary?.overview?.cafe?.volume_total_global || 0,
+              ),
+              showComparison: isComparing,
+            },
+            {
+              label: "Part de marché",
+              value: `${getMarketShare(summary?.overview?.cafe?.ca_total_ht_global || 0)}%`,
+            },
+          ]}
+        />
 
-        <div className="kpi-card border-l-4 border-l-universe-equipement">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-universe-equipement" />
-              <h3 className="font-semibold">Équipement</h3>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">CA Mensuel</span>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {formatPrice(
-                    summary?.overview?.equipement?.ca_total_ht_global || 0,
-                  )}
-                </span>
-                {isComparing && (
-                  <span className="text-xs text-muted-foreground">
-                    vs{" "}
-                    {getPreviousCurrencyValue(
-                      compareSummary?.overview?.equipement?.ca_total_ht_global,
-                    )}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Location</span>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {formatPrice(
-                    summary?.overview?.equipement?.ca_location_total_ht || 0,
-                  )}
-                </span>
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">
-                Part de marché
-              </span>
-              <span className="font-semibold">{`${getMarketShare(summary?.overview?.equipement?.ca_total_ht_global || 0)}%`}</span>
-            </div>
-          </div>
-        </div>
+        <UniverseCard
+          title="Thé & Divers"
+          icon={<Droplets className="h-5 w-5" />}
+          borderColorClass="border-l-universe-thedivers"
+          iconColorClass="text-universe-thedivers"
+          rows={[
+            {
+              label: "CA Mensuel",
+              value: formatPrice(
+                summary?.overview?.consommable?.ca_total_ht_global || 0,
+              ),
+              compareValue: `vs ${getPreviousCurrencyValue(
+                compareSummary?.overview?.consommable?.ca_total_ht_global,
+              )}`,
+              showComparison: isComparing,
+            },
+            // {
+            //   label: "Thés",
+            //   value: formatPrice(
+            //     summary?.overview?.consommable?.ca_location_total_ht || 0,
+            //   ),
+            // },
+            {
+              label: "Part de marché",
+              value: `${getMarketShare(summary?.overview?.consommable?.ca_total_ht_global || 0)}%`,
+            },
+          ]}
+        />
 
-        <div className="kpi-card border-l-4 border-l-universe-service">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-universe-service" />
-              <h3 className="font-semibold">Service</h3>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">CA Mensuel</span>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {formatPrice(
-                    summary?.overview?.service?.ca_total_ht_global || 0,
-                  )}
-                </span>
-                {isComparing && (
-                  <span className="text-xs text-muted-foreground">
-                    vs{" "}
-                    {getPreviousCurrencyValue(
-                      compareSummary?.overview?.service?.ca_total_ht_global,
-                    )}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Cartouches</span>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {formatPrice(
-                    summary?.overview?.service?.ca_cartouche_total_ht || 0,
-                  )}
-                </span>
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">
-                Part de marché
-              </span>
-              <span className="font-semibold">{`${getMarketShare(summary?.overview?.service?.ca_total_ht_global || 0)}%`}</span>
-            </div>
-          </div>
-        </div>
+        <UniverseCard
+          title="Équipement"
+          icon={<Settings className="h-5 w-5" />}
+          borderColorClass="border-l-universe-equipement"
+          iconColorClass="text-universe-equipement"
+          rows={[
+            {
+              label: "CA Mensuel",
+              value: formatPrice(
+                summary?.overview?.equipement?.ca_total_ht_global || 0,
+              ),
+              compareValue: `vs ${getPreviousCurrencyValue(
+                compareSummary?.overview?.equipement?.ca_total_ht_global,
+              )}`,
+              showComparison: isComparing,
+            },
+            {
+              label: "Location",
+              value: formatPrice(
+                summary?.overview?.equipement?.ca_location_total_ht || 0,
+              ),
+            },
+            {
+              label: "Part de marché",
+              value: `${getMarketShare(summary?.overview?.equipement?.ca_total_ht_global || 0)}%`,
+            },
+          ]}
+        />
+
+        <UniverseCard
+          title="Service"
+          icon={<Wrench className="h-5 w-5" />}
+          borderColorClass="border-l-universe-service"
+          iconColorClass="text-universe-service"
+          rows={[
+            {
+              label: "CA Mensuel",
+              value: formatPrice(
+                summary?.overview?.service?.ca_total_ht_global || 0,
+              ),
+              compareValue: `vs ${getPreviousCurrencyValue(
+                compareSummary?.overview?.service?.ca_total_ht_global,
+              )}`,
+              showComparison: isComparing,
+            },
+            {
+              label: "Cartouches",
+              value: formatPrice(
+                summary?.overview?.service?.ca_cartouche_total_ht || 0,
+              ),
+            },
+            {
+              label: "Part de marché",
+              value: `${getMarketShare(summary?.overview?.service?.ca_total_ht_global || 0)}%`,
+            },
+          ]}
+        />
       </div>
 
       {/* Chart - Evolution with 3 universes */}
@@ -735,15 +781,27 @@ export function RecapUniversView({
                   stopOpacity={0}
                 />
               </linearGradient>
-              <linearGradient id="colorService" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="colorConsommable" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="hsl(140, 50%, 45%)"
+                  stopColor="hsl(160, 50%, 40%)"
                   stopOpacity={0.4}
                 />
                 <stop
                   offset="95%"
-                  stopColor="hsl(140, 50%, 45%)"
+                  stopColor="hsl(160, 50%, 40%)"
+                  stopOpacity={0}
+                />
+              </linearGradient>
+              <linearGradient id="colorService" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="hsl(280, 45%, 45%)"
+                  stopOpacity={0.4}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="hsl(280, 45%, 45%)"
                   stopOpacity={0}
                 />
               </linearGradient>
@@ -792,6 +850,17 @@ export function RecapUniversView({
             />
             <Area
               type="monotone"
+              dataKey="consommable"
+              name="Thé & Divers"
+              stroke="hsl(160, 50%, 40%)"
+              strokeWidth={2}
+              fillOpacity={1}
+              fill="url(#colorConsommable)"
+              activeDot={{ r: 6 }}
+              hide={!visibleSeries.consommable}
+            />
+            <Area
+              type="monotone"
               dataKey="equipement"
               name="Équipement"
               stroke="hsl(200, 55%, 40%)"
@@ -805,7 +874,7 @@ export function RecapUniversView({
               type="monotone"
               dataKey="service"
               name="Service"
-              stroke="hsl(140, 50%, 45%)"
+              stroke="hsl(280, 45%, 45%)"
               strokeWidth={2}
               fillOpacity={1}
               fill="url(#colorService)"
@@ -851,17 +920,33 @@ export function RecapUniversView({
                   type="monotone"
                   dataKey="servicePrev"
                   name="Service (Prev)"
-                  stroke="hsl(140, 50%, 45%)"
+                  stroke="hsl(280, 45%, 45%)"
                   strokeWidth={2}
                   strokeDasharray="5 5"
                   fill="none"
                   dot={{
-                    fill: "hsl(140, 50%, 45%)",
+                    fill: "hsl(280, 45%, 45%)",
                     r: 3,
                     strokeDasharray: "none",
                   }}
                   activeDot={{ r: 5 }}
                   hide={!visibleSeries.service}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="consommablePrev"
+                  name="Thé & Divers (Prev)"
+                  stroke="hsl(160, 50%, 40%)"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  fill="none"
+                  dot={{
+                    fill: "hsl(160, 50%, 40%)",
+                    r: 3,
+                    strokeDasharray: "none",
+                  }}
+                  activeDot={{ r: 5 }}
+                  hide={!visibleSeries.consommable}
                 />
               </>
             )}
@@ -893,6 +978,11 @@ export function RecapUniversView({
             format: (v) => formatPrice(v),
           },
           {
+            key: "consommable",
+            label: "Thé & Divers",
+            format: (v) => formatPrice(v),
+          },
+          {
             key: "equipement",
             label: "Équipement",
             format: (v) => formatPrice(v),
@@ -913,7 +1003,10 @@ export function RecapUniversView({
         data={modalEvolutionChartData.map((item) => ({
           ...item,
           total:
-            (item.cafe || 0) + (item.equipement || 0) + (item.service || 0),
+            (item.cafe || 0) +
+            (item.consommable || 0) +
+            (item.equipement || 0) +
+            (item.service || 0),
         }))}
         variant="cafe"
       />

@@ -37,7 +37,15 @@ export interface DataTableModalProps {
   title: string;
   columns: TableColumn[];
   data: Record<string, number | string>[];
-  variant?: "default" | "gc" | "pp" | "b2c" | "cafe" | "equipement" | "service";
+  variant?:
+    | "default"
+    | "gc"
+    | "pp"
+    | "b2c"
+    | "cafe"
+    | "equipement"
+    | "service"
+    | "thedivers";
   clientId?: string;
   onClientChange?: (id: string) => void;
   isLoading?: boolean;
@@ -57,6 +65,7 @@ const variantStyles = {
   cafe: "border-universe-cafe/30",
   equipement: "border-universe-equipement/30",
   service: "border-universe-service/30",
+  thedivers: "border-universe-thedivers/30",
 };
 
 const variantButtonStyles = {
@@ -69,6 +78,8 @@ const variantButtonStyles = {
     "bg-universe-equipement/10 hover:bg-universe-equipement/20 text-universe-equipement",
   service:
     "bg-universe-service/10 hover:bg-universe-service/20 text-universe-service",
+  thedivers:
+    "bg-universe-thedivers/10 hover:bg-universe-thedivers/20 text-universe-thedivers",
 };
 
 export function DataTableModal({

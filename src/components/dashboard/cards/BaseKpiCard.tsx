@@ -10,7 +10,15 @@ interface BaseKpiCardProps {
   previousValue?: string;
   trend?: number;
   icon?: ReactNode;
-  variant?: "default" | "gc" | "pp" | "b2c";
+  variant?:
+    | "default"
+    | "gc"
+    | "pp"
+    | "b2c"
+    | "cafe"
+    | "equipement"
+    | "service"
+    | "thedivers";
   showComparison?: boolean;
   tableTitle?: string;
   tableColumns?: TableColumn[];
@@ -49,6 +57,10 @@ export function BaseKpiCard({
     gc: "border-l-4 border-l-segment-gc",
     pp: "border-l-4 border-l-segment-pp",
     b2c: "border-l-4 border-l-segment-b2c",
+    cafe: "border-l-4 border-l-universe-cafe",
+    equipement: "border-l-4 border-l-universe-equipement",
+    service: "border-l-4 border-l-universe-service",
+    thedivers: "border-l-4 border-l-universe-thedivers",
   };
 
   const hasTableData = tableColumns.length > 0 && tableData.length > 0;

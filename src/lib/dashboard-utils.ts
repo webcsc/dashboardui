@@ -146,6 +146,7 @@ export const transformEvolutionData = <T>(
   maxMonths?: number,
   includeFuture: boolean = false,
   period?: { start: Date; end: Date },
+  universeKey: string = "cafe",
 ) => {
   if (!evolution) return [];
 
@@ -168,7 +169,8 @@ export const transformEvolutionData = <T>(
     const yearData = evolution[year];
 
     return MONTH_ORDER.map((month) => {
-      const cafeData = yearData?.[month]?.cafe;
+      // Access data using the dynamic universeKey
+      const universeData = (yearData?.[month] as any)?.[universeKey];
       const monthIndex = MONTH_ORDER.indexOf(month); // 0-11
 
       // Check if this month is within the selected period
@@ -191,7 +193,7 @@ export const transformEvolutionData = <T>(
         isActif = itemTime >= startTime && itemTime <= endTime ? 1 : 0;
       }
 
-      if (!cafeData) {
+      if (!universeData) {
         if (includeFuture && year === currentYear) {
           return {
             mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
@@ -208,9 +210,9 @@ export const transformEvolutionData = <T>(
 
       return {
         mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
-        ca: cafeData.ca_total_ht,
-        volume: cafeData.volume_total,
-        part_b2b: cafeData.part_b2b || 0,
+        ca: universeData.ca_total_ht,
+        volume: universeData.volume_total,
+        part_b2b: universeData.part_b2b || 0,
         actif: isActif,
         year: year,
         monthIndex: monthIndex,

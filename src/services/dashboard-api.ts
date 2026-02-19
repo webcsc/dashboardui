@@ -118,83 +118,150 @@ export interface DistributionResponse {
 }
 
 /**
- * Interface pour l'overview d'un univers dans le summary
+ * Interface de base pour l'overview d'un univers
  */
-export interface UniverseOverview {
+export interface BaseUniverseOverview {
   universe: string;
   date_start: string;
   date_end: string;
   ca_total_ht_global: number;
-  volume_total_global?: number;
-  part_b2b?: string | number;
-  average_price_per_kg?: string | number;
-  // cafe specifique
-  ca_total_ht_cafe?: number;
-  volume_total_cafe?: number;
-  // Equipement specific
-  ca_location_total_ht?: number;
-  ca_vente_total_ht?: number;
-  ca_assistance_total_ht?: number;
-  ca_entretien_total_ht?: number;
-  // Service specific
-  ca_installation_total_ht?: number;
-  ca_reparation_total_ht?: number;
-  ca_cartouche_total_ht?: number;
-  ca_echange_total_ht?: number;
 }
 
 /**
- * Interface pour les données d'évolution d'un mois pour equipement/service (array)
+ * Interface pour l'overview Café
  */
-export interface UniverseMonthDataItem {
-  universe: string;
-  nombre_facture: number;
-  nombre_product: number;
-  ca_total_ht: number;
+export interface CafeOverview extends BaseUniverseOverview {
+  product_name: string[];
+  ca_total_ht_cafe: number;
+  volume_total_cafe: number;
+  volume_total_global: number;
+  count_b2b: number;
+  count_b2c: number;
+  count_product: number;
+  part_b2b: number;
+  part_b2c: number;
+  average_price_per_kg: number;
 }
 
 /**
- * Interface pour les données d'évolution d'un mois pour cafe (object)
+ * Interface pour l'overview Consommable
  */
-export interface CafeMonthData {
-  universe: string;
-  nombre_facture: number;
-  nombre_product: number;
-  ca_total_ht: number;
-  volume_total: number;
+export interface ConsommableOverview extends BaseUniverseOverview {
+  product_name: string[];
+  volume_total_global: number;
+  count_b2b: number;
+  count_b2c: number;
+  count_product: number;
+  part_b2b: number;
+  part_b2c: number;
+  average_price_per_kg: number;
 }
 
-type MonthBaseData<T> = Record<string, T>;
-type YearBaseData<T> = Record<string, MonthBaseData<T>>;
+/**
+ * Interface pour l'overview Equipement
+ */
+export interface EquipementOverview extends BaseUniverseOverview {
+  ca_location_total_ht: number;
+  ca_vente_total_ht: number;
+  ca_assistance_total_ht: number;
+  ca_entretien_total_ht: number;
+}
+
+/**
+ * Interface pour l'overview Service
+ */
+export interface ServiceOverview extends BaseUniverseOverview {
+  ca_installation_total_ht: number;
+  ca_reparation_total_ht: number;
+  ca_cartouche_total_ht: number;
+  ca_echange_total_ht: number;
+}
+
+/**
+ * Interface pour les données consolidées de tous les univers
+ */
+export interface SummaryOverview {
+  cafe: CafeOverview;
+  consommable: ConsommableOverview;
+  equipement: EquipementOverview;
+  service: ServiceOverview;
+  CATotalUnivers: number;
+}
+
+/**
+ * Données d'évolution pour le Café
+ */
+export interface CafeEvolution {
+  [year: string]: {
+    [month: string]: {
+      cafe: CafeMonthData;
+    };
+  };
+}
+
+/**
+ * Données d'évolution pour les Consommables
+ */
+export interface ConsommableEvolution {
+  [year: string]: {
+    [month: string]: {
+      consommable: CafeMonthData; // Même structure que CafeMonthData (actif, nombre_facture, etc.)
+    };
+  };
+}
+
+/**
+ * Données d'évolution pour l'Equipement
+ */
+export interface EquipementEvolution {
+  [year: string]: {
+    [month: string]: {
+      [category: string]: BaseMonthData;
+    };
+  };
+}
+
+/**
+ * Données d'évolution pour le Service
+ */
+export interface ServiceEvolution {
+  [year: string]: {
+    [month: string]: {
+      [serviceType: string]: BaseMonthData;
+    };
+  };
+}
 
 /**
  * Interface pour la réponse de l'endpoint Summary
  */
 export interface SummaryResponse {
-  overview: {
-    cafe: UniverseOverview;
-    equipement: UniverseOverview;
-    service: UniverseOverview;
-  };
+  overview: SummaryOverview;
   evolution: {
-    cafe: {
-      years: YearBaseData<CafeMonthData>;
+    cafe: CafeEvolution & {
       total: {
+        univers: string;
         ca_total_ht_global: number;
         volume_total_global: number;
+      };
+    };
+    consommable: ConsommableEvolution & {
+      total: {
         univers: string;
+        ca_total_ht_global: number;
+        volume_total_global: number;
       };
     };
-    equipement: {
-      years: YearBaseData<EquipementMonthData>;
+    equipement: EquipementEvolution & {
       total: {
+        univers: string;
         ca_total_ht_global: number;
       };
     };
-    service: {
-      years: YearBaseData<ServiceMonthData>;
+    service: ServiceEvolution & {
       total: {
         ca_total_ht_global: number;
+        volume_total_global?: number;
       };
     };
   };
@@ -545,6 +612,7 @@ export async function fetchThirdparties(): Promise<ThirdPartie[]> {
   const queryParams = new URLSearchParams();
   queryParams.append("sortfield", "t.rowid");
   queryParams.append("sortorder", "ASC");
+  queryParams.append("limit", "1000");
   queryParams.append("sqlfilters", "t.status:=:1");
 
   const url = `${API_BASE_URL}/thirdparties?${queryParams.toString()}`;

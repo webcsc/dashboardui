@@ -1,33 +1,21 @@
-import { useState, useEffect } from 'react';
-import {
-  CalendarIcon,
-  ArrowLeftRight,
-  X,
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { CalendarIcon, ArrowLeftRight, X } from "lucide-react";
 
-import { getPeriodDates, getComparePeriodDates } from '@/lib/date-utils';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { fr } from 'date-fns/locale';
-import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { getPeriodDates, getComparePeriodDates } from "@/lib/date-utils";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { ClientComboBox } from '@/components/ui/client-combobox';
-import { fetchThirdparties, Thirdparty } from '@/services/dashboard-api';
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { ClientComboBox } from "@/components/ui/client-combobox";
+import { fetchThirdparties, Thirdparty } from "@/services/dashboard-api";
 
-import type { FilterState } from '@/types';
+import type { FilterState } from "@/types";
 
 interface FilterBarProps {
   filters: FilterState;
@@ -36,45 +24,43 @@ interface FilterBarProps {
 }
 
 const PRESET_PERIODS = [
-  { label: 'Ce mois', value: 'current-month' },
-  { label: 'Mois dernier', value: 'last-month' },
-  { label: 'Ce trimestre', value: 'current-quarter' },
-  { label: 'Trimestre dernier', value: 'last-quarter' },
-  { label: 'Cette année', value: 'current-year' },
-  { label: 'Année dernière', value: 'last-year' },
-  { label: 'Personnalisé', value: 'custom' },
+  { label: "Ce mois", value: "current-month" },
+  { label: "Mois dernier", value: "last-month" },
+  { label: "Ce trimestre", value: "current-quarter" },
+  { label: "Trimestre dernier", value: "last-quarter" },
+  { label: "Cette année", value: "current-year" },
+  { label: "Année dernière", value: "last-year" },
+  { label: "Personnalisé", value: "custom" },
 ];
 
 const SEGMENTS = [
-  { label: 'Grands Comptes', value: 'gc' },
-  { label: 'Plug & Play', value: 'pp' },
-  { label: 'B2C', value: 'b2c' },
+  { label: "Grands Comptes", value: "gc" },
+  { label: "Plug & Play", value: "pp" },
+  { label: "B2C", value: "b2c" },
 ];
 
 const REGIONS = [
-  { label: 'Île-de-France', value: 'idf' },
-  { label: 'Auvergne-Rhône-Alpes', value: 'ara' },
-  { label: 'PACA', value: 'paca' },
-  { label: 'Occitanie', value: 'occitanie' },
-  { label: 'Nouvelle-Aquitaine', value: 'na' },
-  { label: 'Grand Est', value: 'ge' },
+  { label: "Île-de-France", value: "idf" },
+  { label: "Auvergne-Rhône-Alpes", value: "ara" },
+  { label: "PACA", value: "paca" },
+  { label: "Occitanie", value: "occitanie" },
+  { label: "Nouvelle-Aquitaine", value: "na" },
+  { label: "Grand Est", value: "ge" },
 ];
 
 const CLIENT_TYPES = [
-  { label: 'Entreprises', value: 'entreprise' },
-  { label: 'Administrations', value: 'admin' },
-  { label: 'Coworking', value: 'coworking' },
-  { label: 'Particuliers', value: 'particulier' },
+  { label: "Entreprises", value: "entreprise" },
+  { label: "Administrations", value: "admin" },
+  { label: "Coworking", value: "coworking" },
+  { label: "Particuliers", value: "particulier" },
 ];
-
-
 
 export function FilterBar({
   filters,
   onFiltersChange,
   showComparison = true,
 }: FilterBarProps) {
-  const [selectedPreset, setSelectedPreset] = useState('current-month');
+  const [selectedPreset, setSelectedPreset] = useState("current-month");
   const [isComparing, setIsComparing] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [clients, setClients] = useState<Thirdparty[]>([]);
@@ -86,7 +72,7 @@ export function FilterBar({
         const data = await fetchThirdparties();
         setClients(data);
       } catch (err) {
-        console.error('Failed to load clients', err);
+        console.error("Failed to load clients", err);
       }
     };
     loadClients();
@@ -94,12 +80,14 @@ export function FilterBar({
 
   const handlePresetChange = (preset: string) => {
     setSelectedPreset(preset);
-    if (preset !== 'custom') {
+    if (preset !== "custom") {
       const newPeriod = getPeriodDates(preset);
       onFiltersChange({
         ...filters,
         period: newPeriod,
-        comparePeriod: isComparing ? getComparePeriodDates(newPeriod) : undefined,
+        comparePeriod: isComparing
+          ? getComparePeriodDates(newPeriod)
+          : undefined,
       });
     } else {
       // For custom period, switch to custom but don't overwrite an existing comparePeriod
@@ -143,7 +131,7 @@ export function FilterBar({
 
   const clearAllFilters = () => {
     onFiltersChange({
-      period: getPeriodDates('current-month'),
+      period: getPeriodDates("current-month"),
       comparePeriod: undefined,
       segments: [],
       regions: [],
@@ -151,7 +139,7 @@ export function FilterBar({
       clientId: undefined,
     });
     setIsComparing(false);
-    setSelectedPreset('current-month');
+    setSelectedPreset("current-month");
   };
 
   const activeFilterCount =
@@ -182,11 +170,13 @@ export function FilterBar({
         </Select>
 
         {/* Custom Date Range */}
-        {(selectedPreset === 'custom' || (isComparing && filters.comparePeriod)) && (
+        {(selectedPreset === "custom" ||
+          (isComparing && filters.comparePeriod)) && (
           <DateRangePicker
             value={filters.period}
             onChange={(newPeriod) => {
-              const shouldSetDefaultCompare = isComparing && !filters.comparePeriod;
+              const shouldSetDefaultCompare =
+                isComparing && !filters.comparePeriod;
               onFiltersChange({
                 ...filters,
                 period: newPeriod,
@@ -195,7 +185,7 @@ export function FilterBar({
                   : filters.comparePeriod,
               });
             }}
-            disabled={selectedPreset !== 'custom'}
+            disabled={selectedPreset !== "custom"}
             label="Sélectionner une période"
           />
         )}
@@ -203,7 +193,7 @@ export function FilterBar({
         {/* Comparison Toggle */}
         {showComparison && (
           <Button
-            variant={isComparing ? 'default' : 'outline'}
+            variant={isComparing ? "default" : "outline"}
             size="sm"
             onClick={toggleComparison}
             className="gap-2"
@@ -220,7 +210,7 @@ export function FilterBar({
             onChange={(newComparePeriod) => {
               onFiltersChange({ ...filters, comparePeriod: newComparePeriod });
             }}
-            disabled={selectedPreset !== 'custom'}
+            disabled={selectedPreset !== "custom"}
             label="Période de comparaison"
           />
         )}
@@ -276,43 +266,47 @@ export function FilterBar({
       </div>
 
       {/* Selected Clients Display Bar */}
-      {filters.clientId && (() => {
-        const selectedIds = filters.clientId.split(',').filter(id => id);
-        if (selectedIds.length === 0) return null;
+      {filters.clientId &&
+        (() => {
+          const selectedIds = filters.clientId.split(",").filter((id) => id);
+          if (selectedIds.length === 0) return null;
 
-        return (
-          <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
-            {selectedIds.map((clientId) => {
-              const client = clients.find(c => c.id === clientId);
-              if (!client) return null;
+          return (
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
+              {selectedIds.map((clientId) => {
+                const client = clients.find((c) => c.id === clientId);
+                if (!client) return null;
 
-              return (
-                <Badge
-                  key={clientId}
-                  variant="secondary"
-                  className="pl-3 pr-2 py-1.5 text-sm gap-1.5 hover:bg-secondary/80 transition-colors"
-                >
-                  <span>{client.name}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const newIds = selectedIds.filter(id => id !== clientId);
-                      onFiltersChange({
-                        ...filters,
-                        clientId: newIds.length > 0 ? newIds.join(',') : undefined
-                      });
-                    }}
-                    className="ml-1 rounded-sm hover:bg-muted p-0.5 transition-colors"
-                    aria-label={`Retirer ${client.name}`}
+                return (
+                  <Badge
+                    key={clientId}
+                    variant="secondary"
+                    className="pl-3 pr-2 py-1.5 text-sm gap-1.5 hover:bg-secondary/80 transition-colors"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              );
-            })}
-          </div>
-        );
-      })()}
+                    <span>{client.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newIds = selectedIds.filter(
+                          (id) => id !== clientId,
+                        );
+                        onFiltersChange({
+                          ...filters,
+                          clientId:
+                            newIds.length > 0 ? newIds.join(",") : undefined,
+                        });
+                      }}
+                      className="ml-1 rounded-sm hover:bg-muted p-0.5 transition-colors"
+                      aria-label={`Retirer ${client.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+          );
+        })()}
 
       {/* Extended Filters */}
       {showMoreFilters && (
@@ -328,8 +322,8 @@ export function FilterBar({
                   key={type.value}
                   variant={
                     filters.clientTypes.includes(type.value)
-                      ? 'default'
-                      : 'outline'
+                      ? "default"
+                      : "outline"
                   }
                   className="cursor-pointer transition-all hover:scale-105"
                   onClick={() => handleClientTypeToggle(type.value)}
@@ -344,6 +338,3 @@ export function FilterBar({
     </div>
   );
 }
-
-
-

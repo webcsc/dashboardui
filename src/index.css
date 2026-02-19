@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -54,6 +54,8 @@
     --universe-equipement-light: 200 55% 95%;
     --universe-service: 280 45% 45%;
     --universe-service-light: 280 45% 95%;
+    --universe-thedivers: 160 50% 40%;
+    --universe-thedivers-light: 160 50% 95%;
 
     /* Status colors */
     --success: 145 60% 40%;
@@ -119,13 +121,13 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'DM Sans', sans-serif;
+    font-family: "DM Sans", sans-serif;
   }
 
   h1,
   h2,
   h3 {
-    font-family: 'Playfair Display', serif;
+    font-family: "Playfair Display", serif;
   }
 }
 
@@ -258,5 +260,17 @@
 
   .text-universe-service {
     color: hsl(var(--universe-service));
+  }
+
+  .bg-universe-thedivers {
+    background-color: hsl(var(--universe-thedivers));
+  }
+
+  .bg-universe-thedivers-light {
+    background-color: hsl(var(--universe-thedivers-light));
+  }
+
+  .text-universe-thedivers {
+    color: hsl(var(--universe-thedivers));
   }
 }

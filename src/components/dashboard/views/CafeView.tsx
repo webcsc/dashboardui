@@ -446,81 +446,11 @@ export function CafeView({ filters, isComparing }: CafeViewProps) {
         title="Répartition CA Café"
         clientId={modalClientId}
         onClientChange={setModalClientId}
-        customFilters={[
-          {
-            label: "Type de CA",
-            options: [
-              { value: "cafe", label: "CA total café" },
-              { value: "the_divers", label: "CA total thé et divers" },
-            ],
-          },
-        ]}
         metadata={{
           ca_total_ht_cafe: Number(modalOverview?.ca_total_ht_cafe) || 0,
           volume_total_cafe: Number(modalOverview?.volume_total_cafe) || 0,
           ca_total_ht_global: Number(modalOverview?.ca_total_ht_global) || 0,
           part_b2b: Number(modalOverview?.part_b2b) || 0,
-        }}
-        onCustomFilterChange={(filterValues, metadata) => {
-          const selectedType = filterValues["Type de CA"];
-
-          if (!selectedType || selectedType === "all" || !metadata) {
-            // Return default B2B/B2C breakdown
-            return [
-              {
-                segment: "B2B",
-                ca:
-                  (metadata?.ca_total_ht_global || 0) *
-                  ((metadata?.part_b2b || 0) / 100),
-                part: `${(metadata?.part_b2b || 0).toFixed(1)}%`,
-              },
-              {
-                segment: "B2C / Particuliers",
-                ca:
-                  (metadata?.ca_total_ht_global || 0) *
-                  (1 - (metadata?.part_b2b || 0) / 100),
-                part: `${(100 - (metadata?.part_b2b || 0)).toFixed(1)}%`,
-              },
-            ];
-          }
-
-          if (selectedType === "cafe") {
-            // Show CA breakdown for café specifically
-            const caCafe = metadata.ca_total_ht_cafe || 0;
-            return [
-              {
-                segment: "CA Café B2B",
-                ca: caCafe * ((metadata?.part_b2b || 0) / 100),
-                part: `${(metadata?.part_b2b || 0).toFixed(1)}%`,
-              },
-              {
-                segment: "CA Café B2C",
-                ca: caCafe * (1 - (metadata?.part_b2b || 0) / 100),
-                part: `${(100 - (metadata?.part_b2b || 0)).toFixed(1)}%`,
-              },
-            ];
-          }
-
-          if (selectedType === "the_divers") {
-            // Show CA breakdown for thé et divers (global - café)
-            const caTheDivers =
-              (metadata?.ca_total_ht_global || 0) -
-              (metadata?.ca_total_ht_cafe || 0);
-            return [
-              {
-                segment: "CA Thé et Divers B2B",
-                ca: caTheDivers * ((metadata?.part_b2b || 0) / 100),
-                part: `${(metadata?.part_b2b || 0).toFixed(1)}%`,
-              },
-              {
-                segment: "CA Thé et Divers B2C",
-                ca: caTheDivers * (1 - (metadata?.part_b2b || 0) / 100),
-                part: `${(100 - (metadata?.part_b2b || 0)).toFixed(1)}%`,
-              },
-            ];
-          }
-
-          return [];
         }}
         columns={[
           { key: "segment", label: "Segment" },

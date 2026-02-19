@@ -10,7 +10,7 @@ interface RenderProductViewOptions {
   compareProducts?: Record<string, ProductMap> | null | undefined;
   isComparing: boolean;
   getTrend: (current: number, previous: number | undefined) => number;
-  variant: "cafe" | "equipement" | "service";
+  variant: "cafe" | "equipement" | "service" | "thedivers";
   matchKey?: string;
   mainLabel?: string;
   clientId?: string;
@@ -117,8 +117,14 @@ export function renderProductView({
         <Package className="h-5 w-5 text-universe-cafe" />
       ),
     },
-    equipement: "",
-    service: "",
+    equipement: {} as Record<string, ReactNode>,
+    service: {} as Record<string, ReactNode>,
+    thedivers: {
+      Thés: <Droplets className="h-5 w-5 text-universe-thedivers" />,
+      "Divers (Sucre, Chocolat, Gobelets...)": (
+        <Package className="h-5 w-5 text-universe-thedivers" />
+      ),
+    },
   };
 
   return Object.entries(products).map(
@@ -234,7 +240,7 @@ export function renderProductView({
         <ProductCategorySection
           key={category}
           title={category}
-          icon={iconList[variant][category]}
+          icon={iconList[variant]?.[category]}
           columns={columns}
           data={mergedData}
           variant={variant}
