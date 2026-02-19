@@ -27,6 +27,9 @@ interface MergedEquipementRow extends EquipementRow {
   trend_ca?: number;
   prev_count?: number;
   trend_count?: number;
+  part_ca?: number;
+  prev_part_ca?: number;
+  trend_part_ca?: number;
 }
 
 const iconMapping = {
@@ -123,13 +126,19 @@ export function renderEquipementProductView({
       {
         key: "type",
         label: mainLabel,
-        width: isComparing ? "w-[22%]" : "w-[40%]",
+        width: isComparing ? "w-[20%]" : "w-[30%]",
       },
       {
         key: "ca_total_ht",
         label: "CA",
         format: (v: number) => formatPrice(v),
-        width: isComparing ? "w-[13%]" : "w-[30%]",
+        width: isComparing ? "w-[12%]" : "w-[25%]",
+      },
+      {
+        key: "part_ca",
+        label: "Part",
+        format: (v: number) => (v !== undefined ? `${v.toFixed(1)}%` : "-"),
+        width: isComparing ? "w-[10%]" : "w-[15%]",
       },
     ] as const;
 
@@ -139,7 +148,7 @@ export function renderEquipementProductView({
             key: "prev_ca",
             label: "Préc. (CA)",
             format: (v: number) => (v !== undefined ? formatPrice(v) : "-"),
-            width: "w-[13%]",
+            width: "w-[12%]",
           },
           {
             key: "trend_ca",
@@ -159,7 +168,27 @@ export function renderEquipementProductView({
                 </span>
               );
             },
-            width: "w-[13%]",
+            width: "w-[12%]",
+          },
+          {
+            key: "trend_part_ca",
+            label: "Évol. (Part)",
+            format: (v: number) => {
+              if (v === undefined || Number.isNaN(v)) return "-";
+              const colorClass =
+                v > 0
+                  ? "text-emerald-600"
+                  : v < 0
+                    ? "text-red-600"
+                    : "text-muted-foreground";
+              return (
+                <span className={colorClass}>
+                  {v > 0 ? "+" : ""}
+                  {v.toFixed(1)}pts
+                </span>
+              );
+            },
+            width: "w-[10%]",
           },
         ] as const)
       : ([] as const);
@@ -168,7 +197,7 @@ export function renderEquipementProductView({
       {
         key: "count",
         label: "Unités",
-        width: isComparing ? "w-[13%]" : "w-[30%]",
+        width: isComparing ? "w-[12%]" : "w-[30%]",
       },
     ] as const;
 
@@ -178,7 +207,7 @@ export function renderEquipementProductView({
             key: "prev_count",
             label: "Préc. (Unités)",
             format: (v: number) => (v !== undefined ? v : "-"),
-            width: "w-[13%]",
+            width: "w-[12%]",
           },
           {
             key: "trend_count",
@@ -198,7 +227,7 @@ export function renderEquipementProductView({
                 </span>
               );
             },
-            width: "w-[13%]",
+            width: "w-[12%]",
           },
         ] as const)
       : ([] as const);
@@ -217,13 +246,28 @@ export function renderEquipementProductView({
       }),
     );
 
-    if (!isComparing) return currentRows;
+    const totalCA = currentRows.reduce(
+      (sum, row) => sum + (row.ca_total_ht ?? 0),
+      0,
+    );
+
+    if (!isComparing) {
+      return currentRows.map((row) => ({
+        ...row,
+        part_ca: totalCA > 0 ? ((row.ca_total_ht ?? 0) / totalCA) * 100 : 0,
+      }));
+    }
 
     const prevRows: EquipementRow[] = Object.entries(prevList ?? {}).map(
       ([productName, productData]) => ({
         ...productData,
         type: productName,
       }),
+    );
+
+    const totalPrevCA = prevRows.reduce(
+      (sum, row) => sum + (row.ca_total_ht ?? 0),
+      0,
     );
 
     return currentRows.map((row) => {
@@ -235,12 +279,24 @@ export function renderEquipementProductView({
       const currentCount = row.count ?? 0;
       const prevCount = prevRow?.count;
 
+      const partCA = totalCA > 0 ? (currentCA / totalCA) * 100 : 0;
+      const prevPartCA =
+        prevCA !== undefined && totalPrevCA > 0
+          ? (prevCA / totalPrevCA) * 100
+          : undefined;
+
       return {
         ...row,
         prev_ca: prevCA,
         trend_ca: getTrend(currentCA, prevCA),
         prev_count: prevCount,
         trend_count: getTrend(currentCount, prevCount),
+        part_ca: partCA,
+        prev_part_ca: prevPartCA,
+        trend_part_ca:
+          partCA !== undefined && prevPartCA !== undefined
+            ? partCA - prevPartCA
+            : undefined,
       };
     });
   };

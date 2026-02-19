@@ -58,11 +58,17 @@ export interface CafeMonthData extends BaseMonthData {
 }
 
 /**
- * Interface pour les données mensuelles Equipement
- * Les clés sont dynamiques (ex: "MACHINES", "LOCATION MACHINES")
+ * Interface pour les données mensuelles Équipement (par catégorie)
  */
 export interface EquipementMonthData {
   [category: string]: BaseMonthData;
+}
+
+/**
+ * Interface pour les données mensuelles Consommable (par catégorie)
+ */
+export interface ConsommableMonthData {
+  [category: string]: CafeMonthData;
 }
 
 /**
@@ -114,6 +120,31 @@ export interface DistributionResponse {
   };
   summary: {
     total_poids_global_kg: number;
+  };
+}
+
+/**
+ * Interface pour un item de distribution Consommable
+ * L'API retourne des champs différents: percentage, quantity, lines_count
+ */
+export interface ConsommableDistributionItem {
+  label: string;
+  ca_total_ht: number;
+  percentage: number;
+  quantity: number;
+  lines_count: number;
+}
+
+/**
+ * Interface pour la réponse de l'endpoint Distribution Consommable
+ */
+export interface ConsommableDistributionResponse {
+  distribution: {
+    [category: string]: ConsommableDistributionItem;
+  };
+  summary: {
+    total_ca_global_ht: number;
+    total_products: number;
   };
 }
 
@@ -204,9 +235,7 @@ export interface CafeEvolution {
  */
 export interface ConsommableEvolution {
   [year: string]: {
-    [month: string]: {
-      consommable: CafeMonthData; // Même structure que CafeMonthData (actif, nombre_facture, etc.)
-    };
+    [month: string]: ConsommableMonthData;
   };
 }
 

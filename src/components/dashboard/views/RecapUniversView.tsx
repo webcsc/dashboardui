@@ -282,9 +282,22 @@ export function RecapUniversView({
       // Consommable
       const consommableYearData = consommableData?.[year];
       if (consommableYearData?.[month]) {
-        const mData = consommableYearData[month] as any;
-        consommable =
-          mData?.consommable?.ca_total_ht || mData?.ca_total_ht || 0;
+        const mData = consommableYearData[month] as Record<string, any>;
+        if (
+          typeof mData === "object" &&
+          !mData.ca_total_ht &&
+          !mData.consommable
+        ) {
+          // New multi-category structure (e.g., { "Thé": {...}, "Divers": {...} })
+          consommable = Object.values(mData).reduce(
+            (acc, item) => acc + (Number(item?.ca_total_ht) || 0),
+            0,
+          );
+        } else {
+          // Old structure or direct "consommable" key
+          consommable =
+            mData?.consommable?.ca_total_ht || mData?.ca_total_ht || 0;
+        }
       }
 
       // Comparison Data
@@ -319,9 +332,23 @@ export function RecapUniversView({
         }
 
         if (consommablePrevData?.[prevYear]?.[prevMonth]) {
-          const mData = consommablePrevData[prevYear][prevMonth] as any;
-          consommablePrev =
-            mData?.consommable?.ca_total_ht || mData?.ca_total_ht || 0;
+          const mData = consommablePrevData[prevYear][prevMonth] as Record<
+            string,
+            any
+          >;
+          if (
+            typeof mData === "object" &&
+            !mData.ca_total_ht &&
+            !mData.consommable
+          ) {
+            consommablePrev = Object.values(mData).reduce(
+              (acc, item) => acc + (Number(item?.ca_total_ht) || 0),
+              0,
+            );
+          } else {
+            consommablePrev =
+              mData?.consommable?.ca_total_ht || mData?.ca_total_ht || 0;
+          }
         }
       }
 

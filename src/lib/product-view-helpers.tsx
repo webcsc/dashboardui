@@ -28,6 +28,9 @@ export interface MergedProduct extends Record<
   trend_vol?: number;
   prev_count?: number;
   trend_count?: number;
+  part_ca?: number;
+  prev_part_ca?: number;
+  trend_part_ca?: number;
   [key: string]: string | number | undefined;
 }
 
@@ -41,6 +44,15 @@ export function mergeProductData(
   getTrend: (current: number, previous: number | undefined) => number,
   secondaryKey: string = "volume_total",
 ): MergedProduct[] {
+  const totalCA = currentRows.reduce(
+    (sum, row) => sum + Number(row.ca_total_ht || 0),
+    0,
+  );
+  const totalPrevCA = compareRows.reduce(
+    (sum, row) => sum + Number(row.ca_total_ht || 0),
+    0,
+  );
+
   return currentRows.map((row) => {
     // Find matching row in previous period by matchKey
     const currentMatchValue = row[matchKey];
@@ -65,10 +77,22 @@ export function mergeProductData(
     const trendCA = getTrend(currentCA, prevCA);
     const trendSec = getTrend(currentSec, prevSec);
 
+    const partCA = totalCA > 0 ? (currentCA / totalCA) * 100 : 0;
+    const prevPartCA =
+      prevCA !== undefined && totalPrevCA > 0
+        ? (prevCA / totalPrevCA) * 100
+        : undefined;
+
     const result: MergedProduct = {
       ...row,
       prev_ca: prevCA,
       trend_ca: trendCA,
+      part_ca: partCA,
+      prev_part_ca: prevPartCA,
+      trend_part_ca:
+        partCA !== undefined && prevPartCA !== undefined
+          ? partCA - prevPartCA
+          : undefined,
     };
 
     if (secondaryKey === "volume_total") {
@@ -140,12 +164,20 @@ export function renderProductView({
         ? compareList
         : Object.values(compareList ?? {});
 
+      const secondaryKey =
+        variant === "equipement" || variant === "service"
+          ? "count"
+          : variant === "thedivers"
+            ? "quantity"
+            : "volume_total";
+
       // 3. Merge data with comparison
       const mergedData = mergeProductData(
         currentRows,
         compareRows,
         matchKey,
         getTrend,
+        secondaryKey,
       );
 
       // 4. Build columns based on comparison mode
@@ -155,7 +187,7 @@ export function renderProductView({
       columns.push({
         key: matchKey,
         label: mainLabel,
-        width: isComparing ? "w-[22%]" : "w-[40%]",
+        width: isComparing ? "w-[20%]" : "w-[30%]",
       });
 
       // CA column
@@ -163,7 +195,15 @@ export function renderProductView({
         key: "ca_total_ht",
         label: "CA",
         format: (v: number) => formatPrice(v),
-        width: isComparing ? "w-[13%]" : "w-[30%]",
+        width: isComparing ? "w-[12%]" : "w-[25%]",
+      });
+
+      // Part column
+      columns.push({
+        key: "part_ca",
+        label: "Part",
+        format: (v: number) => (v !== undefined ? `${v.toFixed(1)}%` : "-"),
+        width: isComparing ? "w-[10%]" : "w-[15%]",
       });
 
       // Comparison CA columns
@@ -172,14 +212,14 @@ export function renderProductView({
           key: "prev_ca",
           label: "Préc. (CA)",
           format: (v: number) => (v !== undefined ? formatPrice(v) : "-"),
-          width: "w-[13%]",
+          width: "w-[12%]",
         });
 
         columns.push({
           key: "trend_ca",
           label: "Évol. (CA)",
           format: (v: number) => {
-            if (v === undefined || isNaN(v)) return "-";
+            if (v === undefined || Number.isNaN(v)) return "-";
             const colorClass =
               v > 0
                 ? "text-emerald-600"
@@ -193,30 +233,69 @@ export function renderProductView({
               </span>
             );
           },
-          width: "w-[13%]",
+          width: "w-[12%]",
+        });
+
+        columns.push({
+          key: "trend_part_ca",
+          label: "Évol. (Part)",
+          format: (v: number) => {
+            if (v === undefined || Number.isNaN(v)) return "-";
+            const colorClass =
+              v > 0
+                ? "text-emerald-600"
+                : v < 0
+                  ? "text-red-600"
+                  : "text-muted-foreground";
+            return (
+              <span className={colorClass}>
+                {v > 0 ? "+" : ""}
+                {v.toFixed(1)}pts
+              </span>
+            );
+          },
+          width: "w-[10%]",
         });
       }
 
       // Volume column
+      const secondaryLabel = variant === "thedivers" ? "Unités" : "Volume";
+      const secondaryFormat = (v: number) =>
+        variant === "thedivers" ? v : formatWeight(v);
+
       columns.push({
-        key: "volume_total",
-        label: "Volume",
-        format: (v: number) => formatWeight(v),
-        width: isComparing ? "w-[13%]" : "w-[30%]",
+        key: secondaryKey,
+        label: secondaryLabel,
+        format: secondaryFormat,
+        width: isComparing ? "w-[12%]" : "w-[30%]",
       });
 
-      // Comparison volume columns
+      // Comparison volume/units columns
       if (isComparing) {
+        const secondaryPrevKey =
+          secondaryKey === "volume_total"
+            ? "prev_vol"
+            : secondaryKey === "count"
+              ? "prev_count"
+              : `prev_${secondaryKey}`;
+
+        const secondaryTrendKey =
+          secondaryKey === "volume_total"
+            ? "trend_vol"
+            : secondaryKey === "count"
+              ? "trend_count"
+              : `trend_${secondaryKey}`;
+
         columns.push({
-          key: "prev_vol",
-          label: "Préc. (Vol)",
-          format: (v: number) => (v !== undefined ? formatWeight(v) : "-"),
-          width: "w-[13%]",
+          key: secondaryPrevKey,
+          label: `Préc. (${secondaryLabel})`,
+          format: (v: number) => (v !== undefined ? secondaryFormat(v) : "-"),
+          width: "w-[12%]",
         });
 
         columns.push({
-          key: "trend_vol",
-          label: "Évol. (Vol)",
+          key: secondaryTrendKey,
+          label: `Évol. (${secondaryLabel})`,
           format: (v: number) => {
             if (v === undefined || isNaN(v)) return "-";
             const colorClass =
@@ -232,7 +311,7 @@ export function renderProductView({
               </span>
             );
           },
-          width: "w-[13%]",
+          width: "w-[12%]",
         });
       }
 

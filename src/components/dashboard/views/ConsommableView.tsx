@@ -22,12 +22,23 @@ import {
   useOverview,
   useEvolution,
   useProducts,
+  useDistribution,
 } from "@/hooks/useDashboardData";
 import { useViewFilters, useComparisonHelpers } from "@/hooks";
-import { transformEvolutionData } from "@/lib/dashboard-utils";
+import {
+  transformConsommableEvolution,
+  groupDistributionData,
+} from "@/lib/dashboard-utils";
+import {
+  DEFAULT_EVOLUTION_MONTHS,
+  CONSOMMABLE_CATEGORY_COLORS,
+} from "@/lib/dashboard-constants";
 import { DataTableModal } from "../modals/DataTableModal";
 import { formatPrice, formatWeight, getMonthDuration } from "@/lib";
-import { CafeMonthData, ConsommableEvolution } from "@/services/dashboard-api";
+import {
+  ConsommableEvolution,
+  ConsommableDistributionItem,
+} from "@/services/dashboard-api";
 import { UniverseViewSkeleton } from "../skeletons";
 import { renderProductView } from "@/lib/product-view-helpers";
 
@@ -57,6 +68,7 @@ export function ConsommableView({
     "caDivers",
     "nbRefs",
     "evolution",
+    "distribution",
   ]);
 
   // Sync modal client filter with global filter when opening
@@ -106,6 +118,12 @@ export function ConsommableView({
   const { data: productsResponse, isFetching: isFetchingProducts } =
     useProducts("consommable", filters);
 
+  const {
+    data: distributionResponse,
+    isLoading: isLoadingDistribution,
+    isFetching: isFetchingDistribution,
+  } = useDistribution("consommable", filters);
+
   const { data: compareOverviewResponse } = useOverview(
     "consommable",
     comparisonFilters,
@@ -123,13 +141,10 @@ export function ConsommableView({
   );
 
   // Fetch data specifically for modals (independent of main view)
-  const { data: modalOverviewResponse } = useOverview(
-    "consommable",
-    modalFilters,
-    {
+  const { data: modalOverviewResponse, isFetching: isFetchingModalOverview } =
+    useOverview("consommable", modalFilters, {
       enabled: isAnyOpen,
-    },
-  );
+    });
 
   const modalEvolutionFilters = useMemo(() => {
     if (evolutionLimit > 12) return modalFilters;
@@ -139,11 +154,18 @@ export function ConsommableView({
     return { ...modalFilters, period: { start, end } };
   }, [modalFilters, evolutionLimit]);
 
-  const { data: modalEvolutionResponse } = useEvolution<ConsommableEvolution>(
-    "consommable",
-    modalEvolutionFilters,
-    { enabled: isAnyOpen },
-  );
+  const { data: modalEvolutionResponse, isFetching: isFetchingModalEvolution } =
+    useEvolution<ConsommableEvolution>("consommable", modalEvolutionFilters, {
+      enabled: isAnyOpen,
+    });
+
+  const { data: modalProductsResponse, isFetching: isFetchingModalProducts } =
+    useProducts("consommable", modalFilters, { enabled: isAnyOpen });
+
+  const {
+    data: modalDistributionResponse,
+    isFetching: isFetchingModalDistribution,
+  } = useDistribution("consommable", modalFilters, { enabled: isAnyOpen });
 
   // Data extraction
   const overview = overviewResponse?.data;
@@ -151,6 +173,11 @@ export function ConsommableView({
   const evolution = evolutionResponse?.data;
   const compareProducts = compareProductsResponse?.products;
   const products = productsResponse?.products;
+  const modalProducts = modalProductsResponse?.products;
+  const modalDistribution =
+    modalDistributionResponse?.distribution as unknown as
+      | Record<string, ConsommableDistributionItem>
+      | undefined;
 
   const currentYear = filters.period.start.getFullYear().toString();
   const isCurrentYear =
@@ -161,32 +188,33 @@ export function ConsommableView({
   // Transform Evolution Data for Chart
   const evolutionData = useMemo(
     () =>
-      transformEvolutionData<ConsommableEvolution>(
+      transformConsommableEvolution(
         evolution,
         currentYear,
         evolutionLimit,
         isCurrentYear,
         filters.period,
-        "consommable",
       ),
     [evolution, currentYear, evolutionLimit, isCurrentYear, filters.period],
   );
 
   const modalEvolutionData = useMemo(
     () =>
-      transformEvolutionData(
+      transformConsommableEvolution(
         modalEvolutionResponse?.data,
         filters.period.start.getFullYear().toString(),
         evolutionLimit,
         false, // includeFuture
         filters.period, // Pass period for highlighting
-        "consommable",
       ),
     [modalEvolutionResponse, filters.period, evolutionLimit],
   );
 
   const caTotal = Number(overview?.ca_total_ht_global || 0) || 0;
   const caTotalPrev = compareOverview?.ca_total_ht_global;
+
+  const modalCaTotal =
+    Number(modalOverviewResponse?.data?.ca_total_ht_global || 0) || 0;
 
   // Calculate CA by category from products
   const caThe = useMemo(() => {
@@ -204,6 +232,23 @@ export function ConsommableView({
       products["Divers (Sucre, Chocolat, Gobelets...)"],
     ).reduce((sum, p) => sum + Number(p.ca_total_ht || 0), 0);
   }, [products]);
+
+  const modalCaThe = useMemo(() => {
+    if (!modalProducts || !modalProducts["Thés"]) return 0;
+    return Object.values(modalProducts["Thés"]).reduce(
+      (sum, p) => sum + Number(p.ca_total_ht || 0),
+      0,
+    );
+  }, [modalProducts]);
+
+  const modalCaDivers = useMemo(() => {
+    const key = "Divers (Sucre, Chocolat, Gobelets...)";
+    if (!modalProducts || !modalProducts[key]) return 0;
+    return Object.values(modalProducts[key]).reduce(
+      (sum, p) => sum + Number(p.ca_total_ht || 0),
+      0,
+    );
+  }, [modalProducts]);
 
   const caThePrev = useMemo(() => {
     if (!compareProducts || !compareProducts["Thés"]) return undefined;
@@ -229,53 +274,82 @@ export function ConsommableView({
 
   // Helper to format table data for KPIs
   const theTableData = useMemo(() => {
-    if (!products || !products["Thés"]) return [];
-    return Object.entries(products["Thés"])
+    if (!modalProducts || !modalProducts["Thés"]) return [];
+    const prodData = modalProducts["Thés"];
+
+    return Object.entries(prodData)
       .map(([name, p]) => ({
         marque: name,
         ca: p.ca_total_ht,
-        volume: p.volume_total,
+        quantity: p.quantity,
         part:
-          caThe > 0 ? `${((p.ca_total_ht / caThe) * 100).toFixed(1)}%` : "0%",
-      }))
-      .sort((a, b) => b.ca - a.ca);
-  }, [products, caThe]);
-
-  const diversTableData = useMemo(() => {
-    const key = "Divers (Sucre, Chocolat, Gobelets...)";
-    if (!products || !products[key]) return [];
-    const data = products[key];
-    return Object.entries(data)
-      .map(([name, p]) => ({
-        categorie: name,
-        ca: p.ca_total_ht,
-        volume: p.volume_total,
-        part:
-          caDivers > 0
-            ? `${((p.ca_total_ht / caDivers) * 100).toFixed(1)}%`
+          modalCaThe > 0
+            ? `${((p.ca_total_ht / modalCaThe) * 100).toFixed(1)}%`
             : "0%",
       }))
       .sort((a, b) => b.ca - a.ca);
-  }, [products, caDivers]);
+  }, [modalProducts, modalCaThe]);
+
+  const diversTableData = useMemo(() => {
+    const key = "Divers (Sucre, Chocolat, Gobelets...)";
+    if (!modalProducts || !modalProducts[key]) return [];
+    const prodData = modalProducts[key];
+
+    return Object.entries(prodData)
+      .map(([name, p]) => ({
+        categorie: name,
+        ca: p.ca_total_ht,
+        quantity: p.quantity,
+        part:
+          modalCaDivers > 0
+            ? `${((p.ca_total_ht / modalCaDivers) * 100).toFixed(1)}%`
+            : "0%",
+      }))
+      .sort((a, b) => b.ca - a.ca);
+  }, [modalProducts, modalCaDivers]);
 
   const nbRefs = overview?.count_product || 0;
   const nbRefsPrev = compareOverview?.count_product;
 
-  const renderCustomBarCell = () => {
+  const renderCustomBarCell = (activeColor: string, inactiveColor: string) => {
     return evolutionData.map((entry, index) => (
       <Cell
         key={`cell-${index}`}
-        fill={entry.actif === 1 ? "hsl(160, 50%, 40%)" : "hsl(160, 30%, 65%)"}
+        fill={entry.actif === 1 ? activeColor : inactiveColor}
       />
     ));
   };
 
+  const distribution = distributionResponse?.distribution as unknown as
+    | Record<string, ConsommableDistributionItem>
+    | undefined;
+
+  const distributionChartData = useMemo(() => {
+    if (!distribution) return [];
+    const baseData = Object.entries(distribution)
+      .map(([key, item]) => ({
+        name: item.label || key,
+        ca: item.ca_total_ht,
+        part: item.percentage,
+        quantity: item.quantity,
+      }))
+      .sort((a, b) => b.part - a.part);
+    return groupDistributionData(baseData, 5);
+  }, [distribution]);
+
   // Show skeleton while loading or fetching (includes filter changes)
   // MUST be called after all hooks to avoid "Rendered more hooks" error
   const isLoading =
-    isLoadingOverview || isLoadingEvolution || !overview || !evolution;
+    isLoadingOverview ||
+    isLoadingEvolution ||
+    isLoadingDistribution ||
+    !overview ||
+    !evolution;
   const isFetching =
-    isFetchingOverview || isFetchingEvolution || isFetchingProducts;
+    isFetchingOverview ||
+    isFetchingEvolution ||
+    isFetchingProducts ||
+    isFetchingDistribution;
 
   if (isLoading || isFetching) {
     return <UniverseViewSkeleton />;
@@ -324,63 +398,128 @@ export function ConsommableView({
             trend={getTrend(nbRefs, nbRefsPrev)}
             icon={<Bean className="h-5 w-5 text-universe-thedivers" />}
             showComparison={isComparing}
-            onClick={() => openModal("nbRefs")}
           />
         </div>
       </div>
 
-      {/* Evolution Chart */}
-      <div
-        className="chart-container cursor-pointer hover:shadow-lg transition-all"
-        onClick={() => openModal("evolution")}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Évolution Mensuelle</h3>
-          <span className="text-xs text-muted-foreground underline">
-            Voir tableau
-          </span>
+      {/* Charts: Distribution + Evolution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Distribution Chart */}
+        <div
+          className="chart-container cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => openModal("distribution")}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">
+              Répartition CA par Catégorie
+            </h3>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={distributionChartData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, part }) => `${name} : ${part}%`}
+                outerRadius={80}
+                dataKey="part"
+              >
+                {distributionChartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={
+                      CONSOMMABLE_CATEGORY_COLORS[entry.name] ||
+                      CONSOMMABLE_CATEGORY_COLORS.default
+                    }
+                  />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(40, 25%, 99%)",
+                  border: "1px solid hsl(35, 20%, 88%)",
+                  borderRadius: "0.75rem",
+                }}
+                formatter={(value: number, name: string) => [
+                  name === "ca" ? formatPrice(value) : `${value}%`,
+                  name,
+                ]}
+              />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={evolutionData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
-            <XAxis dataKey="mois" stroke="hsl(25, 15%, 45%)" fontSize={12} />
-            <YAxis
-              stroke="hsl(25, 15%, 45%)"
-              fontSize={12}
-              tickFormatter={(v) =>
-                v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(0)
-              }
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(40, 25%, 99%)",
-                border: "1px solid hsl(35, 20%, 88%)",
-                borderRadius: "0.75rem",
-              }}
-              content={({ payload, ...props }) => {
-                if (!payload || payload.length === 0) return null;
-                if (payload.every((p) => !p.value || p.value === 0))
-                  return null;
-                return <DefaultTooltipContent payload={payload} {...props} />;
-              }}
-              formatter={(value: number, name: string) => {
-                if (name === "CA") {
-                  return [formatPrice(value), "CA"];
+
+        {/* Evolution Chart */}
+        <div
+          className="chart-container cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => openModal("evolution")}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Évolution Mensuelle</h3>
+            <span className="text-xs text-muted-foreground underline">
+              Voir tableau
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={evolutionData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 20%, 88%)" />
+              <XAxis dataKey="mois" stroke="hsl(25, 15%, 45%)" fontSize={12} />
+              <YAxis
+                stroke="hsl(25, 15%, 45%)"
+                fontSize={12}
+                tickFormatter={(v) =>
+                  v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(0)
                 }
-                return [formatWeight(value || 0), "Volume"];
-              }}
-            />
-            <Legend />
-            <Bar
-              dataKey="ca"
-              name="CA"
-              fill="hsl(160, 50%, 40%)"
-              radius={[4, 4, 0, 0]}
-            >
-              {renderCustomBarCell()}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(40, 25%, 99%)",
+                  border: "1px solid hsl(35, 20%, 88%)",
+                  borderRadius: "0.75rem",
+                }}
+                content={({ payload, ...props }) => {
+                  if (!payload || payload.length === 0) return null;
+                  if (payload.every((p) => !p.value || p.value === 0))
+                    return null;
+                  return <DefaultTooltipContent payload={payload} {...props} />;
+                }}
+                formatter={(value: number, name: string) => [
+                  formatPrice(value),
+                  name === "the" ? "Thé" : name === "divers" ? "Divers" : name,
+                ]}
+              />
+              <Legend />
+              <Bar
+                dataKey="the"
+                name="Thé"
+                fill={CONSOMMABLE_CATEGORY_COLORS["Thé"]}
+                radius={[4, 4, 0, 0]}
+              >
+                {renderCustomBarCell(
+                  CONSOMMABLE_CATEGORY_COLORS["Thé"],
+                  "hsl(160, 30%, 65%)",
+                )}
+              </Bar>
+              <Bar
+                dataKey="divers"
+                name="Divers"
+                fill={
+                  CONSOMMABLE_CATEGORY_COLORS["Divers"] || "hsl(35, 75%, 50%)"
+                }
+                radius={[4, 4, 0, 0]}
+              >
+                {renderCustomBarCell(
+                  CONSOMMABLE_CATEGORY_COLORS["Divers"] || "hsl(35, 75%, 50%)",
+                  "hsl(35, 45%, 75%)",
+                )}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Products Section */}
@@ -404,6 +543,7 @@ export function ConsommableView({
         title="Répartition CA Consommable"
         clientId={modalClientId}
         onClientChange={setModalClientId}
+        isLoading={isFetchingModalOverview}
         columns={[
           { key: "categorie", label: "Catégorie" },
           {
@@ -416,13 +556,13 @@ export function ConsommableView({
         data={[
           {
             categorie: "Thé",
-            ca: caThe,
-            part: `${caTotal > 0 ? Math.round((caThe / caTotal) * 100) : 0}%`,
+            ca: modalCaThe,
+            part: `${modalCaTotal > 0 ? Math.round((modalCaThe / modalCaTotal) * 100) : 0}%`,
           },
           {
             categorie: "Divers",
-            ca: caDivers,
-            part: `${caTotal > 0 ? Math.round((caDivers / caTotal) * 100) : 0}%`,
+            ca: modalCaDivers,
+            part: `${modalCaTotal > 0 ? Math.round((modalCaDivers / modalCaTotal) * 100) : 0}%`,
           },
         ]}
         variant="thedivers"
@@ -431,9 +571,10 @@ export function ConsommableView({
       <DataTableModal
         open={openModals.caThe || false}
         onOpenChange={() => closeModal("caThe")}
-        title="Détail Thé par marque"
+        title="Détail Thés"
         clientId={modalClientId}
         onClientChange={setModalClientId}
+        isLoading={isFetchingModalProducts}
         columns={[
           { key: "marque", label: "Marque" },
           {
@@ -442,9 +583,8 @@ export function ConsommableView({
             format: (v) => formatPrice(v),
           },
           {
-            key: "volume",
-            label: "Volume (g)",
-            format: (v) => formatWeight(v),
+            key: "quantity",
+            label: "Unités",
           },
           { key: "part", label: "Part" },
         ]}
@@ -458,6 +598,7 @@ export function ConsommableView({
         title="Détail Divers"
         clientId={modalClientId}
         onClientChange={setModalClientId}
+        isLoading={isFetchingModalProducts}
         columns={[
           { key: "categorie", label: "Catégorie" },
           {
@@ -465,35 +606,10 @@ export function ConsommableView({
             label: "CA",
             format: (v) => formatPrice(v),
           },
-          { key: "volume", label: "Volume" },
+          { key: "quantity", label: "Unités" },
           { key: "part", label: "Part" },
         ]}
         data={diversTableData}
-        variant="thedivers"
-      />
-
-      <DataTableModal
-        open={openModals.nbRefs || false}
-        onOpenChange={() => closeModal("nbRefs")}
-        title="Références par catégorie"
-        clientId={modalClientId}
-        onClientChange={setModalClientId}
-        columns={[
-          { key: "categorie", label: "Catégorie" },
-          { key: "refs", label: "Nb Références" },
-        ]}
-        data={[
-          {
-            categorie: "Thé",
-            refs: Object.keys(products?.["Thés"] || {}).length,
-          },
-          {
-            categorie: "Divers",
-            refs: Object.keys(
-              products?.["Divers (Sucre, Chocolat, Gobelets...)"] || {},
-            ).length,
-          },
-        ]}
         variant="thedivers"
       />
 
@@ -503,20 +619,58 @@ export function ConsommableView({
         title="Évolution Mensuelle Thé & Divers"
         clientId={modalClientId}
         onClientChange={setModalClientId}
+        isLoading={isFetchingModalEvolution}
         columns={[
           { key: "mois", label: "Mois" },
           {
-            key: "ca",
-            label: "CA",
+            key: "the",
+            label: "CA Thé",
             format: (v) => formatPrice(v),
           },
           {
-            key: "volume",
-            label: "Volume (kg)",
-            format: (v) => formatWeight(v),
+            key: "divers",
+            label: "CA Divers",
+            format: (v) => formatPrice(v),
+          },
+          {
+            key: "total",
+            label: "Total HT",
+            format: (v) => formatPrice(v),
           },
         ]}
         data={modalEvolutionData}
+        variant="thedivers"
+      />
+
+      <DataTableModal
+        open={openModals.distribution || false}
+        onOpenChange={() => closeModal("distribution")}
+        title="Répartition CA par Catégorie"
+        clientId={modalClientId}
+        onClientChange={setModalClientId}
+        isLoading={isFetchingModalDistribution}
+        columns={[
+          { key: "categorie", label: "Catégorie" },
+          {
+            key: "ca",
+            label: "CA HT",
+            format: (v) => formatPrice(v),
+          },
+          { key: "percentage", label: "Part CA" },
+          { key: "quantity", label: "Qté" },
+        ]}
+        data={
+          modalDistribution
+            ? Object.entries(modalDistribution)
+                .map(([, item]) => ({
+                  categorie: item.label,
+                  ca: item.ca_total_ht,
+                  percentage: `${item.percentage.toFixed(2)}%`,
+                  quantity: item.quantity,
+                }))
+                .sort((a, b) => b.ca - a.ca)
+            : []
+        }
         variant="thedivers"
       />
     </div>

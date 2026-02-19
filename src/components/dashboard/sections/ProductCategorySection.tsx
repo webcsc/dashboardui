@@ -210,7 +210,12 @@ export function ProductCategorySection({
       const normalizedCurrent = normalizeRawData(categoryData);
       const normalizedCompare = normalizeRawData(compareCategoryData);
 
-      const secondaryKey = variant === "equipement" ? "count" : "volume_total";
+      const secondaryKey =
+        variant === "equipement" || variant === "service"
+          ? "count"
+          : variant === "thedivers"
+            ? "quantity"
+            : "volume_total";
 
       return mergeProductData(
         normalizedCurrent,
@@ -223,9 +228,22 @@ export function ProductCategorySection({
 
     // Transform the category data to match the expected format (injecting keys if needed)
     if (categoryData) {
-      return Object.entries(categoryData).map(([key, item]: [string, any]) => ({
+      const rows = Object.entries(categoryData).map(
+        ([key, item]: [string, any]) => ({
+          ...item,
+          type: key, // Ensure we have the key available as type/name
+        }),
+      );
+
+      const totalCA = rows.reduce(
+        (sum, item) => sum + Number(item.ca_total_ht || 0),
+        0,
+      );
+
+      return rows.map((item) => ({
         ...item,
-        type: key, // Ensure we have the key available as type/name
+        part_ca:
+          totalCA > 0 ? (Number(item.ca_total_ht || 0) / totalCA) * 100 : 0,
       }));
     }
 

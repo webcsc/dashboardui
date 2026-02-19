@@ -4,6 +4,9 @@ import {
   EquipementMonthData,
   EvolutionResponse,
   ServiceMonthData,
+  ConsommableEvolution,
+  ConsommableMonthData,
+  CafeMonthData,
 } from "@/services/dashboard-api";
 import {
   KG_THRESHOLD,
@@ -11,6 +14,7 @@ import {
   MONTH_ORDER,
   DEFAULT_EVOLUTION_MONTHS,
   EQUIPEMENT_UNIVERSE_MAPPING,
+  CONSOMMABLE_UNIVERSE_MAPPING,
   FRENCH_MONTHS,
 } from "./dashboard-constants";
 
@@ -77,7 +81,8 @@ export const groupDistributionData = <
     (item) => (item.part ?? item.value ?? 0) < threshold,
   );
 
-  if (smallItems.length === 0) return data;
+  // Requirement: Only group if we have 2 or more small items
+  if (smallItems.length < 2) return data;
 
   const sumPart = smallItems.reduce(
     (acc, item) => acc + (item.part ?? item.value ?? 0),
@@ -567,6 +572,100 @@ export const transformEquipementEvolution = (
  * @param allData - List of data items containing year and monthIndex
  * @param maxMonths - Maximum number of months to return (defaults to DEFAULT_EVOLUTION_MONTHS if falsy)
  */
+export const transformConsommableEvolution = (
+  evolution: EvolutionResponse<ConsommableEvolution>["data"] | undefined,
+  currentYear: string,
+  maxMonths?: number,
+  includeFuture: boolean = false,
+  period?: { start: Date; end: Date },
+) => {
+  if (!evolution) return [];
+
+  const yearKeys = Object.keys(evolution)
+    .filter((key) => key !== "total" && /^\d{4}$/.test(key))
+    .sort();
+
+  if (includeFuture && !yearKeys.includes(currentYear)) {
+    yearKeys.push(currentYear);
+    yearKeys.sort();
+  }
+
+  const isMoreAYear =
+    yearKeys.length > 1 || yearKeys.some((y) => y !== currentYear);
+
+  // Flatten all data
+  const allData = yearKeys.flatMap((year) => {
+    const yearData = evolution[year];
+
+    return MONTH_ORDER.map((month) => {
+      const monthItems: ConsommableMonthData = yearData?.[
+        month
+      ] as ConsommableMonthData;
+      const monthIndex = MONTH_ORDER.indexOf(month);
+
+      // Check if this month is within the selected period
+      let isActif = 1;
+      if (period) {
+        const start = new Date(period.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(period.end);
+        end.setHours(23, 59, 59, 999);
+
+        // Compare Year and Month
+        const itemTime = parseInt(year) * 12 + monthIndex;
+        const startTime = start.getFullYear() * 12 + start.getMonth();
+        const endTime = end.getFullYear() * 12 + end.getMonth();
+
+        isActif = itemTime >= startTime && itemTime <= endTime ? 1 : 0;
+      }
+
+      if (!monthItems) {
+        if (includeFuture && year === currentYear) {
+          return {
+            mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
+            the: 0,
+            divers: 0,
+            total: 0,
+            actif: 0,
+            year: year,
+            monthIndex: monthIndex,
+          };
+        }
+        return null;
+      }
+
+      const stats = {
+        the: 0,
+        divers: 0,
+      };
+
+      let total = 0;
+
+      Object.entries(monthItems).forEach(([categoryKey, data]) => {
+        const mappedKey = CONSOMMABLE_UNIVERSE_MAPPING[categoryKey];
+        const categoryData = data as CafeMonthData;
+        if (mappedKey && mappedKey in stats) {
+          stats[mappedKey as keyof typeof stats] +=
+            categoryData.ca_total_ht || 0;
+        }
+        total += categoryData.ca_total_ht || 0;
+      });
+
+      return {
+        mois: `${FRENCH_MONTHS[month]}${isMoreAYear ? " " + year : ""}`,
+        the: stats.the,
+        divers: stats.divers,
+        total: total,
+        actif: isActif,
+        year: year,
+        monthIndex: monthIndex,
+      };
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+  });
+
+  return filterLastMonthsData(allData, maxMonths, includeFuture);
+};
+
 export const filterLastMonthsData = <
   T extends { year: string; monthIndex: number },
 >(
