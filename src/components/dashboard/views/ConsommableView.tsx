@@ -308,8 +308,8 @@ export function ConsommableView({
       .sort((a, b) => b.ca - a.ca);
   }, [modalProducts, modalCaDivers]);
 
-  const nbRefs = overview?.total_quantity || 0;
-  const nbRefsPrev = compareOverview?.total_quantity;
+  const nbRefs = overview?.part_b2b || 0;
+  const nbRefsPrev = compareOverview?.part_b2b;
 
   const renderCustomBarCell = (activeColor: string, inactiveColor: string) => {
     return evolutionData.map((entry, index) => (
@@ -392,9 +392,9 @@ export function ConsommableView({
             onClick={() => openModal("caDivers")}
           />
           <BaseKpiCard
-            label="Nb Références"
-            value={nbRefs.toString()}
-            previousValue={nbRefsPrev?.toString()}
+            label="Part B2B"
+            value={nbRefs.toString() + "%"}
+            previousValue={nbRefsPrev?.toString() + "%"}
             trend={getTrend(nbRefs, nbRefsPrev)}
             icon={<Bean className="h-5 w-5 text-universe-thedivers" />}
             showComparison={isComparing}

@@ -1,7 +1,7 @@
 import type { FilterState } from "@/types";
 import { Products } from "@/types/products";
 import { ThirdPartie } from "@/types/thirdparti";
-import { format, subMonths } from "date-fns";
+import { format } from "date-fns";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -34,6 +34,7 @@ export interface OverviewResponse {
     ca_vente_total_ht?: number;
     ca_assistance_total_ht?: number;
     ca_entretien_total_ht?: number;
+    ca_frais_port_ht?: number;
 
     // Autres champs potentiels
     [key: string]: number | string;
@@ -207,6 +208,7 @@ export interface ServiceOverview extends BaseUniverseOverview {
   ca_reparation_total_ht: number;
   ca_cartouche_total_ht: number;
   ca_echange_total_ht: number;
+  ca_frais_livraison_ht: number;
 }
 
 /**

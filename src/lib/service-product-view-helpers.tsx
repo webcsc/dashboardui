@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Package,
   ArrowRightLeft,
+  Truck,
 } from "lucide-react";
 
 interface EquipementProductViewProps {
@@ -46,6 +47,7 @@ const iconMapping = {
   "Échange Standard": (
     <ArrowRightLeft className="h-5 w-5 text-universe-servie" />
   ),
+  "Frais de livraison": <Truck className="h-5 w-5 text-universe-servie" />,
 };
 
 const typeMapping = ["Typologie", "Type"];

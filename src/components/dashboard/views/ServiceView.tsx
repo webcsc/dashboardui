@@ -350,7 +350,7 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             // onClick={() => openModal('reparation')}
           />
           <BaseKpiCard
-            label="Changement Cartouche"
+            label="Cartouche"
             value={formatPrice(overview?.ca_cartouche_total_ht || 0)}
             previousValue={getPreviousCurrencyValue(
               compareOverview?.ca_cartouche_total_ht,
@@ -364,22 +364,14 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
             // onClick={() => openModal('cartouche')}
           />
           <BaseKpiCard
-            label="Prêt / Échange"
-            value={formatPrice(
-              (overview?.ca_pret_total_ht || 0) +
-                (overview?.ca_echange_total_ht || 0),
-            )}
+            label="Frais de livraison"
+            value={formatPrice(overview?.ca_frais_port_ht || 0)}
             previousValue={getPreviousCurrencyValue(
-              (compareOverview?.ca_pret_total_ht || 0) +
-                (compareOverview?.ca_echange_total_ht || 0),
+              compareOverview?.ca_frais_port_ht,
             )}
             trend={getTrend(
-              (overview?.ca_pret_total_ht || 0) +
-                (overview?.ca_echange_total_ht || 0),
-              Number(
-                (compareOverview?.ca_pret_total_ht || 0) +
-                  (compareOverview?.ca_echange_total_ht || 0),
-              ),
+              overview?.ca_frais_port_ht,
+              Number(compareOverview?.ca_frais_port_ht),
             )}
             icon={<ArrowRightLeft className="h-5 w-5 text-universe-service" />}
             showComparison={isComparing}
