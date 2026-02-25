@@ -3,9 +3,18 @@ import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-  ].filter(Boolean),
+  server: {
+    host: '0.0.0.0',
+    allowedHosts: ['dashboard-dev.chacunsoncafe.local'],
+    watch: {
+      usePolling: true,
+    },
+    hmr: {
+      // HMR WebSocket connects via the nginx proxy on HTTPS
+      clientPort: 443,
+    },
+  },
+  plugins: [react()].filter(Boolean),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -18,7 +27,11 @@ export default defineConfig({
         manualChunks: {
           // Vendor chunks
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs'],
+          'vendor-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+          ],
           'vendor-charts': ['recharts'],
           'vendor-query': ['@tanstack/react-query'],
           'vendor-utils': ['date-fns', 'clsx', 'tailwind-merge'],

@@ -1,16 +1,16 @@
-import { BaseKpiCard } from "../cards/BaseKpiCard";
-import { ClickableChart } from "../charts/ClickableChart";
-import { Coffee, Euro, TrendingUp, Building2, Zap, User } from "lucide-react";
-import type { FilterState } from "@/types";
-import { useState } from "react";
-import { DataTableModal } from "../modals/DataTableModal";
-import { TableColumn } from "@/types";
+import { BaseKpiCard } from '../cards/BaseKpiCard';
+import { ClickableChart } from '../charts/ClickableChart';
+import { Euro, Building2, Zap, User } from 'lucide-react';
+import type { FilterState } from '@/types';
+import { useState } from 'react';
+import { DataTableModal } from '../modals/DataTableModal';
+import { TableColumn } from '@/types';
 import {
   MOCK_RECAP_KPI,
   MOCK_GRANDS_COMPTES,
   MOCK_PLUG_PLAY,
   MOCK_B2C,
-} from "@/services/mock-kpi-strategic";
+} from '@/services/mock-kpi-strategic';
 
 interface RecapKpiViewProps {
   filters: FilterState;
@@ -29,28 +29,28 @@ const revenueChartData = mockData.ca_total_recurrent.evolution.map((item) => ({
 }));
 
 const previousRevenueData = [
-  { name: "Jan", value: 290000 },
-  { name: "Fév", value: 305000 },
-  { name: "Mar", value: 318000 },
-  { name: "Avr", value: 332000 },
-  { name: "Mai", value: 345000 },
-  { name: "Juin", value: 358000 },
+  { name: 'Jan', value: 290000 },
+  { name: 'Fév', value: 305000 },
+  { name: 'Mar', value: 318000 },
+  { name: 'Avr', value: 332000 },
+  { name: 'Mai', value: 345000 },
+  { name: 'Juin', value: 358000 },
 ];
 
 const segmentGCData = mockData.segment_gc.kpis;
 const segmentPPData = mockData.segment_pp.kpis;
 const segmentB2CData = mockData.segment_b2c.kpis;
 
-export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
-  const [segmentModal, setSegmentModal] = useState<"gc" | "pp" | "b2c" | null>(
+export function RecapKpiView({ isComparing }: RecapKpiViewProps) {
+  const [segmentModal, setSegmentModal] = useState<'gc' | 'pp' | 'b2c' | null>(
     null,
   );
 
   const segmentColumns: TableColumn[] = [
-    { key: "kpi", label: "KPI" },
-    { key: "actuel", label: "Actuel" },
-    { key: "precedent", label: "Précédent" },
-    { key: "variation", label: "Variation" },
+    { key: 'kpi', label: 'KPI' },
+    { key: 'actuel', label: 'Actuel' },
+    { key: 'precedent', label: 'Précédent' },
+    { key: 'variation', label: 'Variation' },
   ];
 
   return (
@@ -74,25 +74,25 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
           showComparison={isComparing}
           tableTitle="Évolution CA par segment"
           tableColumns={[
-            { key: "mois", label: "Mois" },
+            { key: 'mois', label: 'Mois' },
             {
-              key: "gc",
-              label: "GC",
+              key: 'gc',
+              label: 'GC',
               format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
             },
             {
-              key: "pp",
-              label: "P&P",
+              key: 'pp',
+              label: 'P&P',
               format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
             },
             {
-              key: "b2c",
-              label: "B2C",
+              key: 'b2c',
+              label: 'B2C',
               format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
             },
             {
-              key: "total",
-              label: "Total",
+              key: 'total',
+              label: 'Total',
               format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
             },
           ]}
@@ -137,7 +137,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div
           className="kpi-card border-l-4 border-l-segment-gc cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all"
-          onClick={() => setSegmentModal("gc")}
+          onClick={() => setSegmentModal('gc')}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
                 <span className="font-semibold">{`${(MOCK_GRANDS_COMPTES.arr.current / 1000000).toFixed(2)}M€`}</span>
                 {isComparing && (
                   <span className="text-xs text-muted-foreground">
-                    vs{" "}
+                    vs{' '}
                     {`${(MOCK_GRANDS_COMPTES.arr.previous / 1000000).toFixed(2)}M€`}
                   </span>
                 )}
@@ -179,7 +179,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
 
         <div
           className="kpi-card border-l-4 border-l-segment-pp cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all"
-          onClick={() => setSegmentModal("pp")}
+          onClick={() => setSegmentModal('pp')}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
 
         <div
           className="kpi-card border-l-4 border-l-segment-b2c cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all"
-          onClick={() => setSegmentModal("b2c")}
+          onClick={() => setSegmentModal('b2c')}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
                 <span className="font-semibold">{`${(MOCK_B2C.mrr_abonnements.current / 1000).toFixed(0)}k€`}</span>
                 {isComparing && (
                   <span className="text-xs text-muted-foreground">
-                    vs{" "}
+                    vs{' '}
                     {`${(MOCK_B2C.mrr_abonnements.previous / 1000).toFixed(0)}k€`}
                   </span>
                 )}
@@ -272,7 +272,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
 
       {/* Modals */}
       <DataTableModal
-        open={segmentModal === "gc"}
+        open={segmentModal === 'gc'}
         onOpenChange={() => setSegmentModal(null)}
         title="Grands Comptes - KPIs détaillés"
         columns={segmentColumns}
@@ -280,7 +280,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
         variant="gc"
       />
       <DataTableModal
-        open={segmentModal === "pp"}
+        open={segmentModal === 'pp'}
         onOpenChange={() => setSegmentModal(null)}
         title="Plug & Play - KPIs détaillés"
         columns={segmentColumns}
@@ -288,7 +288,7 @@ export function RecapKpiView({ filters, isComparing }: RecapKpiViewProps) {
         variant="pp"
       />
       <DataTableModal
-        open={segmentModal === "b2c"}
+        open={segmentModal === 'b2c'}
         onOpenChange={() => setSegmentModal(null)}
         title="B2C - KPIs détaillés"
         columns={segmentColumns}

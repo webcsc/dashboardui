@@ -30,3 +30,7 @@ storybook-static
 # Environment Variables
 .env
 .env.local
+
+# Docker
+docker/traefik/acme.json
+docker-compose.override.yml

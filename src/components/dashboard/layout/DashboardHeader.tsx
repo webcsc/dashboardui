@@ -1,6 +1,6 @@
-import { Coffee, Bell, Settings, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { Coffee, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function DashboardHeader() {
   const { logout } = useAuth();

@@ -1,0 +1,46 @@
+# =============================================================================
+# .dockerignore — Exclude from Docker build context
+# =============================================================================
+
+# Dependencies (re-installed inside container)
+node_modules
+
+# Build output (rebuilt inside container)
+dist
+dist-ssr
+
+# Version control
+.git
+.gitignore
+
+# IDE / Editor
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment files (passed via env_file or Docker secrets)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Docker files (not needed in context for dev builds)
+docker-compose.yml
+
+# Storybook
+.storybook
+storybook-static
+*storybook.log
+
+# Documentation / Misc
+README.md
+*.code-workspace
+debug_transform.ts
