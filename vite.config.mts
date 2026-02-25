@@ -1,11 +1,11 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc';
-import path from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react-swc";
+import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
-    host: '0.0.0.0',
-    allowedHosts: ['dashboard-dev.chacunsoncafe.local'],
+    host: "0.0.0.0",
+    allowedHosts: ["dashboard-dev.chacunsoncafe.local", "localhost"],
     watch: {
       usePolling: true,
     },
@@ -17,7 +17,7 @@ export default defineConfig({
   plugins: [react()].filter(Boolean),
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   build: {
@@ -26,15 +26,15 @@ export default defineConfig({
       output: {
         manualChunks: {
           // Vendor chunks
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-ui": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-select",
+            "@radix-ui/react-tabs",
           ],
-          'vendor-charts': ['recharts'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-utils': ['date-fns', 'clsx', 'tailwind-merge'],
+          "vendor-charts": ["recharts"],
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-utils": ["date-fns", "clsx", "tailwind-merge"],
         },
       },
     },
@@ -46,12 +46,12 @@ export default defineConfig({
   // Optimisation des dépendances
   optimizeDeps: {
     include: [
-      'react',
-      'react-dom',
-      'react-router-dom',
-      '@tanstack/react-query',
-      'recharts',
-      'date-fns',
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "@tanstack/react-query",
+      "recharts",
+      "date-fns",
     ],
   },
 });

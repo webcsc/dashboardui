@@ -30,6 +30,7 @@ export function useOverview(
   filters: FilterState,
   options?: { enabled?: boolean },
 ) {
+  console.log(filters);
   return useQuery({
     queryKey: ["overview", view, filters],
     queryFn: () => fetchOverview(view, filters),

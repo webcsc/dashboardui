@@ -31,6 +31,11 @@ const CafeView = lazy(() =>
     /* webpackChunkName: "view-cafe" */ "@/components/dashboard/views/CafeView"
   ).then((m) => ({ default: m.CafeView })),
 );
+const WholesaleView = lazy(() =>
+  import(
+    /* webpackChunkName: "view-wholesale" */ "@/components/dashboard/views/WholesaleView"
+  ).then((m) => ({ default: m.WholesaleView })),
+);
 const ConsommableView = lazy(() =>
   import(
     /* webpackChunkName: "view-consommable" */ "@/components/dashboard/views/ConsommableView"
@@ -101,6 +106,8 @@ const Index = () => {
         return <RecapUniversView {...viewProps} />;
       case "cafe":
         return <CafeView {...viewProps} />;
+      case "wholesale":
+        return <WholesaleView {...viewProps} />;
       case "the-divers":
         return <ConsommableView {...viewProps} />;
       case "equipement":

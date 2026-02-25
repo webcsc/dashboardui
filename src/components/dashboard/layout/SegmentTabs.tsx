@@ -11,6 +11,7 @@ import {
   BarChart3,
   Box,
   Droplets,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const KPI_TABS = ["recap-kpi", "gc", "pp", "b2c"];
 const UNIVERS_TABS = [
   "recap-univers",
   "cafe",
+  "wholesale",
   "Thé & Divers",
   "equipement",
   "service",
@@ -58,9 +60,9 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
       {/* Toggle Switch pour les groupes */}
       <div className="flex items-center bg-muted rounded-lg p-1 w-fit">
         <button
-          // onClick={() => handleGroupChange("kpi")}
+          onClick={() => handleGroupChange("kpi")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all opacity-50 cursor-not-allowed",
+            "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeGroup === "kpi"
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground",
@@ -124,7 +126,7 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
         </Tabs>
       ) : (
         <Tabs value={value} onValueChange={onValueChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 h-11 bg-secondary/50">
+          <TabsList className="grid w-full grid-cols-6 h-11 bg-secondary/50">
             <TabsTrigger
               value="recap-univers"
               className="flex items-center gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm"
@@ -164,6 +166,14 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
               <Wrench className="h-4 w-4" />
               <span className="hidden sm:inline">Service</span>
               <span className="sm:hidden">Service</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="wholesale"
+              className="flex items-center gap-1.5 data-[state=active]:bg-universe-cafe data-[state=active]:text-white text-xs sm:text-sm"
+            >
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">Wholesale</span>
+              <span className="sm:hidden">Wholesale</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>

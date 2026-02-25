@@ -360,6 +360,9 @@ export async function fetchOverview(
   if (filters.clientId) {
     queryParams.append("socids", filters.clientId);
   }
+  if (filters.isWholesale) {
+    queryParams.append("isWholesale", filters.isWholesale.toString());
+  }
 
   if (filters.segments && filters.segments.length > 0) {
     queryParams.append("segments", filters.segments.join(","));
@@ -428,6 +431,9 @@ export async function fetchEvolution<T>(
   if (filters.regions && filters.regions.length > 0) {
     queryParams.append("regions", filters.regions.join(","));
   }
+  if (filters.isWholesale) {
+    queryParams.append("isWholesale", filters.isWholesale.toString());
+  }
 
   if (filters.clientTypes && filters.clientTypes.length > 0) {
     queryParams.append("client_types", filters.clientTypes.join(","));
@@ -490,6 +496,9 @@ export async function fetchDistribution(
   if (filters.clientTypes && filters.clientTypes.length > 0) {
     queryParams.append("client_types", filters.clientTypes.join(","));
   }
+  if (filters.isWholesale) {
+    queryParams.append("isWholesale", filters.isWholesale.toString());
+  }
 
   const url = `${API_BASE_URL}/cscdataapi/distribution/${universe}?${queryParams.toString()}`;
 
@@ -550,7 +559,9 @@ export async function fetchSummary(
   if (filters.clientTypes && filters.clientTypes.length > 0) {
     queryParams.append("client_types", filters.clientTypes.join(","));
   }
-
+  if (filters.isWholesale) {
+    queryParams.append("isWholesale", filters.isWholesale.toString());
+  }
   const url = `${API_BASE_URL}/cscdataapi/summary?${queryParams.toString()}`;
 
   const response = await fetch(url, {
@@ -609,6 +620,10 @@ export async function fetchProducts<T>(
 
   if (filters.clientTypes && filters.clientTypes.length > 0) {
     queryParams.append("client_types", filters.clientTypes.join(","));
+  }
+
+  if (filters.isWholesale) {
+    queryParams.append("isWholesale", filters.isWholesale.toString());
   }
 
   const url = `${API_BASE_URL}/cscdataapi/products/${universe}?${queryParams.toString()}`;

@@ -33,21 +33,6 @@ const PRESET_PERIODS = [
   { label: "Personnalisé", value: "custom" },
 ];
 
-const SEGMENTS = [
-  { label: "Grands Comptes", value: "gc" },
-  { label: "Plug & Play", value: "pp" },
-  { label: "B2C", value: "b2c" },
-];
-
-const REGIONS = [
-  { label: "Île-de-France", value: "idf" },
-  { label: "Auvergne-Rhône-Alpes", value: "ara" },
-  { label: "PACA", value: "paca" },
-  { label: "Occitanie", value: "occitanie" },
-  { label: "Nouvelle-Aquitaine", value: "na" },
-  { label: "Grand Est", value: "ge" },
-];
-
 const CLIENT_TYPES = [
   { label: "Entreprises", value: "entreprise" },
   { label: "Administrations", value: "admin" },
@@ -62,7 +47,7 @@ export function FilterBar({
 }: FilterBarProps) {
   const [selectedPreset, setSelectedPreset] = useState("current-month");
   const [isComparing, setIsComparing] = useState(false);
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showMoreFilters] = useState(false);
   const [clients, setClients] = useState<Thirdparty[]>([]);
 
   // Load clients for display
@@ -107,20 +92,6 @@ export function FilterBar({
         : undefined,
     });
   };
-
-  // const handleSegmentToggle = (segment: string) => {
-  //   const newSegments = filters.segments.includes(segment)
-  //     ? filters.segments.filter((s) => s !== segment)
-  //     : [...filters.segments, segment];
-  //   onFiltersChange({ ...filters, segments: newSegments });
-  // };
-
-  // const handleRegionToggle = (region: string) => {
-  //   const newRegions = filters.regions.includes(region)
-  //     ? filters.regions.filter((r) => r !== region)
-  //     : [...filters.regions, region];
-  //   onFiltersChange({ ...filters, regions: newRegions });
-  // };
 
   const handleClientTypeToggle = (type: string) => {
     const newTypes = filters.clientTypes.includes(type)
@@ -226,31 +197,6 @@ export function FilterBar({
             }
           />
         </div>
-
-        {/* More Filters Toggle */}
-        {/* <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowMoreFilters(!showMoreFilters)}
-          className="gap-2"
-        >
-          <Filter className="h-4 w-4" />
-          Filtres
-          {activeFilterCount > 0 && (
-            <Badge
-              variant="secondary"
-              className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-            >
-              {activeFilterCount}
-            </Badge>
-          )}
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 transition-transform',
-              showMoreFilters && 'rotate-180',
-            )}
-          />
-        </Button> */}
 
         {activeFilterCount > 0 && (
           <Button
