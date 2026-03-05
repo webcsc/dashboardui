@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Building2,
   Zap,
-  User,
+  // User,
   Coffee,
   Settings,
   Wrench,
@@ -90,7 +90,7 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
       {/* Onglets du groupe actif */}
       {activeGroup === "kpi" ? (
         <Tabs value={value} onValueChange={onValueChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-11 bg-secondary/50">
+          <TabsList className="grid w-full grid-cols-3 h-11 bg-secondary/50">
             <TabsTrigger
               value="recap-kpi"
               className="flex items-center gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm"
@@ -115,13 +115,13 @@ export function SegmentTabs({ value, onValueChange }: SegmentTabsProps) {
               <span className="hidden sm:inline">Plug & Play</span>
               <span className="sm:hidden">P&P</span>
             </TabsTrigger>
-            <TabsTrigger
+            {/* <TabsTrigger
               value="b2c"
               className="flex items-center gap-1.5 data-[state=active]:bg-segment-b2c data-[state=active]:text-white text-xs sm:text-sm"
             >
               <User className="h-4 w-4" />
               <span>B2C</span>
-            </TabsTrigger>
+            </TabsTrigger> */}
           </TabsList>
         </Tabs>
       ) : (
