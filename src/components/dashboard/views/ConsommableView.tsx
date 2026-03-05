@@ -71,12 +71,10 @@ export function ConsommableView({
     "distribution",
   ]);
 
-  // Sync modal client filter with global filter when opening
+  // Sync modal client filter with global client filter
   useEffect(() => {
-    if (isAnyOpen) {
-      setModalClientId(filters.clientId);
-    }
-  }, [isAnyOpen, filters.clientId]);
+    setModalClientId(filters.clientId);
+  }, [filters.clientId]);
 
   // Use custom hooks for filters and comparison helpers
   const { modalFilters, comparisonFilters } = useViewFilters(

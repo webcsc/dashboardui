@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { ProductCategorySection } from "@/components/dashboard/sections/ProductCategorySection";
 import { formatPrice, formatWeight } from "@/lib/formatters";
 import type { TableColumn } from "@/types";
-import type { ProductMap } from "@/types/products";
+import type { Product, ProductMap } from "@/types/products";
 import { Bean, Coffee, Droplets, Package } from "lucide-react";
 
 interface RenderProductViewOptions {
@@ -38,8 +38,8 @@ export interface MergedProduct extends Record<
  * Helper to merge current product data with comparison data
  */
 export function mergeProductData(
-  currentRows: any[],
-  compareRows: any[],
+  currentRows: Product[],
+  compareRows: Product[],
   matchKey: string,
   getTrend: (current: number, previous: number | undefined) => number,
   secondaryKey: string = "volume_total",

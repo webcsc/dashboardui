@@ -115,12 +115,10 @@ export function ServiceView({ filters, isComparing }: ServiceViewProps) {
   ]);
   const [modalClientId, setModalClientId] = useState<string | undefined>();
 
-  // Sync modal filter
+  // Sync modal filter with global client filter
   useEffect(() => {
-    if (isAnyOpen) {
-      setModalClientId(filters.clientId);
-    }
-  }, [isAnyOpen, filters.clientId]);
+    setModalClientId(filters.clientId);
+  }, [filters.clientId]);
 
   // Use custom hooks for filters and comparison helpers
   const { modalFilters, comparisonFilters } = useViewFilters(

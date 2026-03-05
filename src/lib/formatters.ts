@@ -112,7 +112,7 @@ const roundStandard = (value: number, decimals: number): number => {
  * Formate une valeur monétaire avec arrondi "vers le haut" et suffixe k€ ou M€
  *
  * @param value - Valeur à formater
- * @param decimals - Nombre de décimales
+ * @param decimals - Nombre de décimales (par défaut: 1)
  * @param currency - Devise (par défaut: "€")
  * @returns Chaîne formatée avec le symbole de la devise
  *

@@ -25,6 +25,7 @@ import { X, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClientComboBox } from "@/components/ui/client-combobox";
 import { TableColumn } from "@/types";
+import { formatPrice } from "@/lib";
 
 export interface CustomFilter {
   label: string;
@@ -222,38 +223,108 @@ export function DataTableModal({
       const min = Math.min(...values);
       const max = Math.max(...values);
       const range = max - min;
-
-      // If all values are the same or very close, don't create ranges
-      if (range < 0.01) return [];
+      const sortedValues = [...values].sort((a, b) => a - b);
 
       // Percentage ranges
       if (type === "percentage") {
-        const ranges = [];
-        if (min < 25) ranges.push("< 25%");
-        if (min < 50 && max >= 25) ranges.push("25% - 50%");
-        if (min < 75 && max >= 50) ranges.push("50% - 75%");
-        if (max >= 75) ranges.push("≥ 75%");
-        return ranges;
+        const percentageBins = [
+          { label: "< 25%", min: Number.NEGATIVE_INFINITY, max: 25 },
+          { label: "25% - 50%", min: 25, max: 50 },
+          { label: "50% - 75%", min: 50, max: 75 },
+          { label: "≥ 75%", min: 75, max: Number.POSITIVE_INFINITY },
+        ];
+
+        return percentageBins
+          .filter((bin, index) => {
+            const isLast = index === percentageBins.length - 1;
+            return sortedValues.some((value) => {
+              if (isLast) return value >= bin.min;
+              return value >= bin.min && value < bin.max;
+            });
+          })
+          .map((bin) => bin.label);
       }
 
-      // For other numeric types, create 4 ranges
-      const step = range / 4;
-      const ranges = [];
+      const toNiceStep = (rawStep: number) => {
+        if (!Number.isFinite(rawStep) || rawStep <= 0) return 1;
 
-      for (let i = 0; i < 4; i++) {
-        const rangeMin = min + step * i;
-        const rangeMax = i === 3 ? max : min + step * (i + 1);
+        const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+        const normalized = rawStep / magnitude;
 
-        let label = "";
+        if (normalized <= 1) return 1 * magnitude;
+        if (normalized <= 2) return 2 * magnitude;
+        if (normalized <= 2.5) return 2.5 * magnitude;
+        if (normalized <= 5) return 5 * magnitude;
+        return 10 * magnitude;
+      };
+
+      const getStepDecimals = (stepValue: number) => {
+        if (!Number.isFinite(stepValue) || stepValue <= 0) return 0;
+        if (stepValue >= 1) return 0;
+        return Math.min(4, Math.ceil(-Math.log10(stepValue)));
+      };
+
+      const targetBins = 4;
+      let step = toNiceStep(range === 0 ? 1 : range / targetBins);
+      let niceMin = Math.floor(min / step) * step;
+      let niceMax = niceMin + step * targetBins;
+
+      let safety = 0;
+      while ((max > niceMax || min < niceMin) && safety < 10) {
+        step = toNiceStep(step * 1.01);
+        niceMin = Math.floor(min / step) * step;
+        niceMax = niceMin + step * targetBins;
+        safety += 1;
+      }
+
+      const stepDecimals = getStepDecimals(step);
+      const bounds = Array.from({ length: 5 }, (_, index) => {
+        const value = niceMin + step * index;
+        return Number(value.toFixed(stepDecimals));
+      });
+
+      bounds[4] = Math.max(bounds[4], max);
+
+      const formatBound = (value: number, decimals: number) => {
         if (type === "currency") {
-          label = `${(rangeMin / 1000).toFixed(0)}k - ${(rangeMax / 1000).toFixed(0)}k €`;
-        } else if (type === "weight") {
-          label = `${rangeMin.toFixed(0)} - ${rangeMax.toFixed(0)} kg`;
-        } else {
-          label = `${rangeMin.toFixed(0)} - ${rangeMax.toFixed(0)}`;
+          return formatPrice(value, decimals, "").trim();
         }
+        return Number(value.toFixed(decimals)).toString();
+      };
 
-        ranges.push(label);
+      const buildRanges = (decimals: number) =>
+        Array.from({ length: 4 }, (_, index) => {
+          const rangeMin = bounds[index];
+          const rangeMax = bounds[index + 1];
+          const minLabel = formatBound(bounds[index], decimals);
+          const maxLabel = formatBound(bounds[index + 1], decimals);
+          const hasValues = sortedValues.some((value) => {
+            if (index === 3) return value >= rangeMin && value <= rangeMax;
+            return value >= rangeMin && value < rangeMax;
+          });
+
+          if (!hasValues) return null;
+
+          if (type === "currency") return `${minLabel} - ${maxLabel} €`;
+          if (type === "weight") return `${minLabel} - ${maxLabel} kg`;
+          return `${minLabel} - ${maxLabel}`;
+        }).filter((label): label is string => Boolean(label));
+
+      const hasFlatRange = (ranges: string[]) =>
+        ranges.some((label) => {
+          const cleanLabel = label.replace(" €", "").replace(" kg", "");
+          const [from, to] = cleanLabel.split(" - ");
+          return from === to;
+        });
+
+      const startDecimals = type === "currency" ? 0 : stepDecimals;
+      let ranges = buildRanges(startDecimals);
+
+      for (let decimals = startDecimals + 1; decimals <= 2; decimals++) {
+        if (!hasFlatRange(ranges) && new Set(ranges).size === ranges.length) {
+          break;
+        }
+        ranges = buildRanges(decimals);
       }
 
       return ranges;
@@ -282,8 +353,8 @@ export function DataTableModal({
         // Check if numeric column
         const numericType = isNumericColumn(col, uniqueValues);
 
-        if (numericType && uniqueValues.length >= 4) {
-          // Create range filters for numeric columns with many values
+        if (numericType) {
+          // Always create 4 range filters for numeric columns
           const numericValues = uniqueValues
             .map((v) => Number(v))
             .filter((v) => !isNaN(v));
@@ -323,6 +394,27 @@ export function DataTableModal({
     const isValueInRange = (value: number, rangeLabel: string): boolean => {
       // Parse range labels like "3k - 6k €", "100 - 200 kg", "< 25%", "≥ 75%"
 
+      const parseCompactNumber = (raw: string): number => {
+        const cleaned = raw
+          .replace(/€/g, "")
+          .replace(/\s+/g, "")
+          .replace(/,/g, ".")
+          .trim();
+
+        const match = cleaned.match(/^(-?\d+(?:\.\d+)?)([kKmMbB])?$/);
+        if (!match) {
+          return Number(cleaned);
+        }
+
+        const num = Number(match[1]);
+        const suffix = match[2]?.toLowerCase();
+
+        if (suffix === "k") return num * 1_000;
+        if (suffix === "m") return num * 1_000_000;
+        if (suffix === "b") return num * 1_000_000_000;
+        return num;
+      };
+
       // Handle percentage ranges
       if (rangeLabel.includes("%")) {
         const numValue = Number(value);
@@ -350,11 +442,11 @@ export function DataTableModal({
       // Handle currency ranges like "3k - 6k €"
       if (rangeLabel.includes("€")) {
         const numValue = Number(value);
-        const parts = rangeLabel.replace(" €", "").split(" - ");
+        const parts = rangeLabel.split(" - ");
         if (parts.length === 2) {
-          const min = parseFloat(parts[0].replace("k", "")) * 1000;
-          const max = parseFloat(parts[1].replace("k", "")) * 1000;
-          return numValue >= min && numValue < max;
+          const min = parseCompactNumber(parts[0]);
+          const max = parseCompactNumber(parts[1]);
+          return numValue >= min && numValue <= max;
         }
       }
 

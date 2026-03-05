@@ -13,7 +13,6 @@ import { TableColumn } from "@/types";
 import { useProducts } from "@/hooks/useDashboardData";
 import { useViewFilters } from "@/hooks";
 import type { FilterState } from "@/types";
-import type { Product } from "@/types/products";
 import { mergeProductData } from "@/lib/product-view-helpers";
 import { useComparisonHelpers } from "@/hooks";
 
@@ -76,12 +75,10 @@ export function ProductCategorySection({
   );
   const styles = variantStyles[variant];
 
-  // Sync modal client filter with prop when modal opens
+  // Sync modal client filter with parent client filter
   useEffect(() => {
-    if (isModalOpen) {
-      setModalClientId(clientId);
-    }
-  }, [isModalOpen, clientId]);
+    setModalClientId(clientId);
+  }, [clientId]);
 
   // Only fetch data if filters are provided (for views with API support)
   const shouldFetchData = !!filters && isModalOpen;
@@ -170,22 +167,10 @@ export function ProductCategorySection({
         : {};
 
     const currentRows = categoryData ? Object.values(categoryData) : [];
-    const compareRows = compareCategoryData
-      ? Object.values(compareCategoryData)
-      : [];
 
     if (isComparing) {
-      // Use the helper we extracted to merge data
-      let matchKey = "type"; // default for cafe
-      if (variant === "equipement") matchKey = "type"; // Equipement rows usually have 'type' or 'marque' as key, but helper adds 'type' key
-      if (variant === "service") matchKey = "type_intervention";
-
       // Heuristic for matchKey if not explicit
       if (currentRows.length > 0) {
-        const firstRow = currentRows[0];
-        if (firstRow && typeof firstRow === "object" && "type" in firstRow) {
-          matchKey = "type";
-        }
         // For equipement, the rows might have 'marque' or 'type' depending on subcategory
         // But the API response objects usually have the key as the ID.
         // Wait, Object.values() loses the key.

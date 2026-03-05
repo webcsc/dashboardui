@@ -49,12 +49,10 @@ export function RecapUniversView({
   const { data: summaryResponse } = useSummary(filters);
 
   const [modalClientId, setModalClientId] = useState<string | undefined>();
-  // Sync modal filter
+  // Sync modal filter with global client filter
   useEffect(() => {
-    if (openModals.evolution) {
-      setModalClientId(filters.clientId);
-    }
-  }, [openModals.evolution, filters.clientId]);
+    setModalClientId(filters.clientId);
+  }, [filters.clientId]);
 
   // Use custom hooks for filters and comparison helpers
   const { modalFilters: baseModalFilters, comparisonFilters } = useViewFilters(
