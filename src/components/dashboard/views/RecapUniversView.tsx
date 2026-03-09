@@ -46,7 +46,7 @@ export function RecapUniversView({
   const { openModals, openModal, closeModal } = useModalState(["evolution"]);
 
   // Fetch summary data for current period
-  const { data: summaryResponse } = useSummary(filters);
+  const { data: summaryResponse, isFetching } = useSummary(filters);
 
   const [modalClientId, setModalClientId] = useState<string | undefined>();
   // Sync modal filter with global client filter
@@ -123,8 +123,11 @@ export function RecapUniversView({
     };
   }, [comparisonFilters]);
 
-  const { data: trendSummaryResponse, isLoading: isLoadingTrend } =
-    useSummary(trendFilters);
+  const {
+    data: trendSummaryResponse,
+    isLoading: isLoadingTrend,
+    isFetching: isFetchingTrend,
+  } = useSummary(trendFilters);
   const { data: trendCompareSummaryResponse } = useSummary(
     trendComparisonFilters,
     {
@@ -554,7 +557,7 @@ export function RecapUniversView({
   };
 
   // Show skeleton while loading (after all hooks have been called)
-  if (isLoadingTrend || !summary) {
+  if (isLoadingTrend || isFetching || isFetchingTrend || !summary) {
     return <RecapUniversSkeleton />;
   }
 

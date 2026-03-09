@@ -683,3 +683,165 @@ export async function fetchThirdparties(): Promise<ThirdPartie[]> {
     name: item.name || "",
   }));
 }
+
+// =============================================================================
+// KPI STRATÉGIQUE API
+// =============================================================================
+
+export interface KpiStrategiqueArrEvolutionItem {
+  month: string;
+  arr: number;
+  clients: number;
+}
+
+export interface KpiStrategiqueAdoptionParClient {
+  client: string;
+  collaborateurs: number;
+  actifs: number;
+  taux: string;
+}
+
+export interface KpiStrategiqueMargeClient {
+  client: string;
+  ca: number;
+  marge: number;
+  tauxMarge: string;
+}
+
+export interface KpiStrategiqueGrandsComptes {
+  // ── Forme "avec données" (structure imbriquée) ──────────────────────────────
+  clients?: { count: number; trend: number };
+  arr?: { evolution: KpiStrategiqueArrEvolutionItem[] };
+  adoption_interne?: { par_client: KpiStrategiqueAdoptionParClient[] };
+  marge_client?: { details: KpiStrategiqueMargeClient[] };
+  ococ_client?: { valeur: number; details: unknown[] };
+  contrats?: { nombre_abonnements_cours: number; etude_cas: number };
+  // ── Forme "sans données" (structure plate) ──────────────────────────────────
+  segment?: string;
+  date_start?: string;
+  date_end?: string;
+  mrr_current?: number;
+  arr_current?: number;
+  nombre_clients_start?: number;
+  nombre_clients_end?: number;
+  clients_acquis?: number;
+  clients_perdus?: number;
+  total_revenue?: number;
+  total_cost?: number;
+  marge?: number;
+  evolution_arr?: unknown[];
+  adoption_par_client?: unknown[];
+  gross_churn?: number;
+  nrr?: number;
+}
+
+export interface KpiStrategiqueMrrEvolutionItem {
+  mois: string;
+  mrr: number;
+  nouveaux: number;
+  churns: number;
+  net: number;
+}
+
+export interface KpiStrategiquePlugPlay {
+  // ── Forme "avec données" (structure imbriquée) ──────────────────────────────
+  clients?: { count: number; trend: number };
+  mrr?: { evolution: KpiStrategiqueMrrEvolutionItem[] };
+  churn_90j?: { valeur: number; par_cohorte: unknown[] };
+  /** arpa est un objet { valeur } quand il y a des données, un nombre sinon */
+  arpa?: { valeur: number; par_pack: unknown[] } | number;
+  abonnements?: { nombre_actif: number; upsell: number };
+  // ── Forme "sans données" (structure plate) ──────────────────────────────────
+  segment?: string;
+  date_start?: string;
+  date_end?: string;
+  mrr_current?: number;
+  arr_current?: number;
+  nombre_abonnements_start?: number;
+  nombre_abonnements_end?: number;
+  abonnements_acquis?: number;
+  abonnements_perdus?: number;
+  churn_90_jours?: number;
+  total_revenue?: number;
+  total_cost?: number;
+  marge?: number;
+  evolution_mrr?: unknown[];
+  gross_churn?: number;
+  nrr?: number;
+}
+
+export interface KpiStrategiqueB2C {
+  segment: string;
+  date_start?: string;
+  date_end?: string;
+  mrr_start?: number;
+  mrr_end?: number;
+  mrr_current?: number;
+  arr_current?: number;
+  new_mrr?: number;
+  churn_mrr?: number;
+  expansion_mrr?: number;
+  logo_churn?: number;
+  gross_churn?: number;
+  nrr?: number;
+  nombre_abonnes_start?: number;
+  nombre_abonnes_end?: number;
+  abonnes_acquis?: number;
+  abonnes_perdus?: number;
+  arpa?: number;
+  churn_90_jours?: number;
+  total_revenue?: number;
+  total_cost?: number;
+  marge?: number;
+  evolution_mrr?: unknown[];
+  courbe_retention?: unknown[];
+}
+
+export interface KpiStrategiqueSummaryResponse {
+  overview: {
+    grands_comptes?: KpiStrategiqueGrandsComptes;
+    plug_and_play?: KpiStrategiquePlugPlay;
+    b2c?: KpiStrategiqueB2C;
+    mrr_total_recurrent?: number;
+    arr_total_recurrent?: number;
+  };
+}
+
+/**
+ * Récupère les données KPI Stratégiques consolidées (GC + P&P + B2C).
+ *
+ * @param filters - Filtres actifs (période, etc.).
+ * @returns Une promesse contenant les données KPI Stratégique.
+ */
+export async function fetchKpiStrategiqueSummary(
+  filters: FilterState,
+): Promise<KpiStrategiqueSummaryResponse> {
+  const queryParams = new URLSearchParams();
+
+  if (filters.period) {
+    queryParams.append(
+      "date_start",
+      format(filters.period.start, "yyyy-MM-dd"),
+    );
+    queryParams.append("date_end", format(filters.period.end, "yyyy-MM-dd"));
+  }
+
+  if (filters.clientId) {
+    queryParams.append("socids", filters.clientId);
+  }
+
+  const url = `${API_BASE_URL}/cscdataapi/kpistrategique/summary?${queryParams.toString()}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `KPI Stratégique API Error: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  return response.json();
+}

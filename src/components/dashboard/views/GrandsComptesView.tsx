@@ -1,58 +1,30 @@
-import { useState } from "react";
-import { SimpleKpiCard } from "../cards/SimpleKpiCard";
+import { useMemo, useState } from "react";
 import { BaseKpiCard } from "../cards/BaseKpiCard";
-import {
-  Building2,
-  TrendingUp,
-  Coffee,
-  Users,
-  Euro,
-  Clock,
-  Target,
-  FileText,
-} from "lucide-react";
+import { Building2, Users, Euro, Target } from "lucide-react";
 import {
   AreaChart,
   Area,
+  ReferenceArea,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
 } from "recharts";
 import type { FilterState } from "@/types";
 import { DataTableModal } from "../modals/DataTableModal";
-import { TableColumn } from "@/types";
-import { ImpactCard } from "../cards/ImpactCard";
-import { MOCK_GRANDS_COMPTES } from "@/services/mock-kpi-strategic";
+import {
+  useKpiStrategiqueOverviewGrandsComptes,
+  useKpiStrategiqueEvolutionGrandsComptes,
+} from "@/hooks/useDashboardData";
+import { useViewFilters, useComparisonHelpers } from "@/hooks";
+import { UniverseViewSkeleton } from "../skeletons";
+import { formatPrice } from "@/lib";
 
 interface GrandsComptesViewProps {
   filters: FilterState;
   isComparing: boolean;
 }
-
-// Extract data from mock for easier access
-const mockData = MOCK_GRANDS_COMPTES;
-
-// Transform data for charts
-const revenueData = mockData.arr.evolution.map((item) => ({
-  month: item.month.substring(0, 3),
-  arr: item.arr,
-}));
-
-const adoptionData = mockData.adoption_interne.par_client.map((item) => ({
-  client: item.client,
-  taux: parseInt(item.taux),
-}));
-
-// Table data (already in correct format in mock)
-const arrTableData = mockData.arr.evolution;
-const tassesGCData = mockData.tasses_mensuelles.details;
-const adoptionTableData = mockData.adoption_interne.par_client;
-const margeTableData = mockData.marge_client.details;
-const ococGCData = mockData.ococ_client.details;
 
 export function GrandsComptesView({
   filters,
@@ -60,6 +32,266 @@ export function GrandsComptesView({
 }: GrandsComptesViewProps) {
   const [arrModalOpen, setArrModalOpen] = useState(false);
   const [adoptionModalOpen, setAdoptionModalOpen] = useState(false);
+
+  // Filters & comparison helpers
+  const { comparisonFilters } = useViewFilters(filters);
+  const { getTrend, getPreviousValue, getPreviousCurrencyValue } =
+    useComparisonHelpers(isComparing);
+
+  // Strip comparePeriod so the main query key stays stable when comparison is toggled
+  const mainFilters = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { comparePeriod, ...rest } = filters;
+    return rest;
+  }, [filters]);
+
+  const {
+    data: overviewData,
+    isLoading: isLoadingOverview,
+    isFetching: isFetchingOverview,
+  } = useKpiStrategiqueOverviewGrandsComptes(mainFilters);
+  const {
+    data: evolutionData,
+    isLoading: isLoadingEvolution,
+    isFetching: isFetchingEvolution,
+  } = useKpiStrategiqueEvolutionGrandsComptes(mainFilters);
+
+  // Comparison data
+  const { data: compareOverviewData } = useKpiStrategiqueOverviewGrandsComptes(
+    comparisonFilters,
+    {
+      enabled: isComparing && !!filters.comparePeriod,
+    },
+  );
+  const { data: compareEvolutionData } =
+    useKpiStrategiqueEvolutionGrandsComptes(comparisonFilters, {
+      enabled: isComparing && !!filters.comparePeriod,
+    });
+
+  const isLoading = isLoadingOverview || isLoadingEvolution;
+  const isFetching = isFetchingOverview || isFetchingEvolution;
+
+  const overview = overviewData?.data;
+  const compareOverview = compareOverviewData?.data;
+  const overviewAny = overview as unknown as
+    | Record<string, unknown>
+    | undefined;
+  const compareOverviewAny = compareOverview as unknown as
+    | Record<string, unknown>
+    | undefined;
+  const evolutionItems = useMemo(
+    () => evolutionData?.data ?? [],
+    [evolutionData],
+  );
+  const compareEvolutionItems = useMemo(
+    () => compareEvolutionData?.data ?? [],
+    [compareEvolutionData],
+  );
+
+  const getLastFiniteValue = <T,>(
+    items: T[],
+    pick: (item: T) => number | undefined,
+  ): number | undefined => {
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      const value = pick(items[i]);
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+      }
+    }
+    return undefined;
+  };
+
+  // --- ARR ---
+  const arrEvolution = useMemo(
+    () =>
+      overview?.arr?.evolution ??
+      (overviewAny?.evolution_arr as
+        | Array<{ month: string; arr: number; clients?: number }>
+        | undefined) ??
+      [],
+    [overview, overviewAny],
+  );
+  // Use evolution API for current ARR value
+  const lastEvoValue = getLastFiniteValue(evolutionItems, (item) => item.value);
+  const lastArrValue = getLastFiniteValue(arrEvolution, (item) => item.arr);
+  const arrCurrent =
+    lastEvoValue ??
+    lastArrValue ??
+    (overviewAny?.arr_current as number | undefined) ??
+    0;
+  const lastCompareEvoValue = getLastFiniteValue(
+    compareEvolutionItems,
+    (item) => item.value,
+  );
+  const lastCompareOverviewArr = getLastFiniteValue(
+    compareOverview?.arr?.evolution ?? [],
+    (item) => item.arr,
+  );
+  const arrPrevious =
+    lastCompareEvoValue ??
+    lastCompareOverviewArr ??
+    (compareOverviewAny?.arr_current as number | undefined) ??
+    undefined;
+
+  const nombreAbonnementEtudeCasCurrent = overview?.contrats?.etude_cas ?? 0;
+  const nombreAbonnementEtudeCasPrevious = compareOverview?.contrats?.etude_cas;
+
+  // --- Données graphique & table ARR (evolution API) ---
+  const revenueData = useMemo(
+    () =>
+      evolutionItems.length
+        ? evolutionItems.map((item) => ({
+            rawMonth: item.month,
+            month: item.month.substring(0, 3),
+            arr: item.value,
+          }))
+        : arrEvolution.length
+          ? arrEvolution.map((item) => ({
+              rawMonth: item.month,
+              month: item.month.substring(0, 3),
+              arr: item.arr,
+            }))
+          : [],
+    [evolutionItems, arrEvolution],
+  );
+
+  const arrTableData = useMemo(
+    () =>
+      evolutionItems.length
+        ? evolutionItems.map((item) => ({
+            month: item.month,
+            arr: item.value,
+            clients: item.clients_count,
+          }))
+        : arrEvolution.length
+          ? arrEvolution.map((item) => ({
+              month: item.month,
+              arr: item.arr,
+              clients: item.clients,
+            }))
+          : [],
+    [evolutionItems, arrEvolution],
+  );
+
+  // Highlight periods where month is outside selected filter period.
+  const inactiveRanges = useMemo(() => {
+    if (!revenueData.length) return [];
+
+    const parseMonthKey = (value: string): number | undefined => {
+      if (!value) return undefined;
+
+      const yymmMatch = value.match(/^(\d{4})-(\d{2})/);
+      if (yymmMatch) {
+        const year = Number(yymmMatch[1]);
+        const month = Number(yymmMatch[2]);
+        if (Number.isFinite(year) && month >= 1 && month <= 12) {
+          return year * 100 + month;
+        }
+      }
+
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return undefined;
+      }
+
+      return parsed.getFullYear() * 100 + (parsed.getMonth() + 1);
+    };
+
+    const periodStartKey =
+      filters.period.start.getFullYear() * 100 +
+      (filters.period.start.getMonth() + 1);
+    const periodEndKey =
+      filters.period.end.getFullYear() * 100 +
+      (filters.period.end.getMonth() + 1);
+
+    const ranges: { start: string; end: string }[] = [];
+    let currentStart: string | null = null;
+
+    revenueData.forEach((point, index) => {
+      const pointDate = parseMonthKey(point.rawMonth);
+      const isInactive =
+        !!pointDate && (pointDate < periodStartKey || pointDate > periodEndKey);
+
+      if (isInactive) {
+        if (!currentStart) {
+          currentStart = point.month;
+        }
+
+        if (index === revenueData.length - 1 && currentStart) {
+          ranges.push({ start: currentStart, end: point.month });
+        }
+      } else if (currentStart) {
+        const previousPoint = revenueData[index - 1];
+        ranges.push({ start: currentStart, end: previousPoint.month });
+        currentStart = null;
+      }
+    });
+
+    return ranges;
+  }, [filters.period.end, filters.period.start, revenueData]);
+  const clientsCount =
+    overview?.clients?.count ??
+    (overviewAny?.nombre_clients_end as number | undefined) ??
+    0;
+  const compareClientsCount =
+    compareOverview?.clients?.count ??
+    (compareOverviewAny?.nombre_clients_end as number | undefined);
+
+  // --- Adoption interne ---
+  const adoptionParClient = useMemo(
+    () =>
+      overview?.adoption_interne?.par_client ??
+      (overviewAny?.adoption_par_client as
+        | Array<{
+            client: string;
+            collaborateurs: number;
+            actifs: number;
+            taux: string | number;
+          }>
+        | undefined) ??
+      [],
+    [overview, overviewAny],
+  );
+
+  // --- Marge ---
+  const margeDetails = useMemo(
+    () => overview?.marge_client?.details ?? [],
+    [overview],
+  );
+  const margeCurrent = margeDetails.length
+    ? parseFloat(margeDetails[0].tauxMarge.replace("%", ""))
+    : ((overviewAny?.marge as number | undefined) ?? 0);
+  const compareMargeDetails = compareOverview?.marge_client?.details ?? [];
+  const margePrevious = compareMargeDetails.length
+    ? parseFloat(compareMargeDetails[0].tauxMarge.replace("%", ""))
+    : ((compareOverviewAny?.marge as number | undefined) ?? undefined);
+
+  // --- OCOC ---
+  const ococCurrent = overview?.ococ_client?.valeur ?? 0;
+  const ococPrevious = compareOverview?.ococ_client?.valeur;
+
+  // --- Données table adoption ---
+  const adoptionTableData = useMemo(
+    () => adoptionParClient,
+    [adoptionParClient],
+  );
+
+  const adoptionData = useMemo(
+    () =>
+      adoptionTableData.map((item) => ({
+        client: item.client,
+        taux: parseFloat(String(item.taux).replace("%", "")) || 0,
+      })),
+    [adoptionTableData],
+  );
+
+  // --- Données table marge ---
+  const margeTableData = useMemo(() => margeDetails, [margeDetails]);
+
+  // Show skeleton while loading or fetching (includes filter changes)
+  if (isLoading || isFetching) {
+    return <UniverseViewSkeleton />;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -69,75 +301,65 @@ export function GrandsComptesView({
           <Building2 className="h-6 w-6 text-segment-gc" />
           Grands Comptes – KPIs Clés
         </h2>
+        {/* Overview section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <BaseKpiCard
             label="ARR"
-            value={`${(mockData.arr.current / 1000000).toFixed(2)}M€`}
-            previousValue={`${(mockData.arr.previous / 1000000).toFixed(2)}M€`}
-            trend={mockData.arr.trend}
+            value={formatPrice(arrCurrent)}
+            previousValue={getPreviousCurrencyValue(arrPrevious)}
+            trend={getTrend(arrCurrent, arrPrevious)}
             icon={<Euro className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
             tableTitle="Évolution ARR"
             tableColumns={[
-              { key: "mois", label: "Mois" },
+              { key: "month", label: "Mois" },
               {
                 key: "arr",
                 label: "ARR",
-                format: (v) => `${((v || 0) / 1000000).toFixed(2)}M€`,
+                format: (v) => formatPrice(v),
               },
-              { key: "variation", label: "Variation" },
               { key: "clients", label: "Clients" },
             ]}
             tableData={arrTableData}
+            isLoading={isLoadingOverview || isLoadingEvolution}
           />
           <BaseKpiCard
-            label="Tasses / mois"
-            value={`${(mockData.tasses_mensuelles.current / 1000).toFixed(0)}k`}
-            previousValue={`${(mockData.tasses_mensuelles.previous / 1000).toFixed(0)}k`}
-            trend={mockData.tasses_mensuelles.trend}
-            icon={<Coffee className="h-5 w-5 text-segment-gc" />}
-            variant="gc"
-            showComparison={isComparing}
-            tableTitle="Consommation mensuelle"
-            tableColumns={[
-              { key: "mois", label: "Mois" },
-              {
-                key: "tasses",
-                label: "Tasses",
-                format: (v) => (v || 0).toLocaleString(),
-              },
-              { key: "sites", label: "Sites" },
-              {
-                key: "moyenneSite",
-                label: "Moy/site",
-                format: (v) => (v || 0).toLocaleString(),
-              },
-            ]}
-            tableData={tassesGCData}
-          />
-          <BaseKpiCard
-            label="Adoption interne"
-            value={`${mockData.adoption_interne.current}%`}
-            previousValue={`${mockData.adoption_interne.previous}%`}
-            trend={mockData.adoption_interne.trend}
+            label="Clients"
+            value={`${clientsCount}`}
+            previousValue={getPreviousValue(compareClientsCount)}
+            trend={getTrend(clientsCount, compareClientsCount)}
             icon={<Users className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
-            tableTitle="Adoption par client"
+            isLoading={isLoadingOverview}
+          />
+          <BaseKpiCard
+            label="Étude de cas"
+            value={nombreAbonnementEtudeCasCurrent.toString()}
+            previousValue={getPreviousValue(nombreAbonnementEtudeCasPrevious)}
+            trend={getTrend(
+              nombreAbonnementEtudeCasCurrent,
+              nombreAbonnementEtudeCasPrevious,
+            )}
+            icon={<Users className="h-5 w-5 text-segment-gc" />}
+            variant="gc"
+            showComparison={isComparing}
+            tableTitle="Étude de cas par client"
             tableColumns={[
               { key: "client", label: "Client" },
               { key: "collaborateurs", label: "Collaborateurs" },
               { key: "actifs", label: "Actifs" },
               { key: "taux", label: "Taux" },
             ]}
-            tableData={adoptionTableData}
+            // tableData={adoptionTableData}
+            isLoading={isLoadingOverview}
           />
           <BaseKpiCard
             label="Marge / client"
-            value={`${mockData.marge_client.current}%`}
-            previousValue={`${mockData.marge_client.previous}%`}
-            trend={mockData.marge_client.trend}
+            value={`${margeCurrent.toFixed(2)}%`}
+            previousValue={getPreviousValue(margePrevious, "%")}
+            trend={getTrend(margeCurrent, margePrevious)}
             icon={<Target className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
@@ -147,43 +369,34 @@ export function GrandsComptesView({
               {
                 key: "ca",
                 label: "CA",
-                format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
+                format: (v) => formatPrice(v),
               },
               {
                 key: "marge",
                 label: "Marge",
-                format: (v) => `${((v || 0) / 1000).toFixed(0)}k€`,
+                format: (v) => formatPrice(v),
               },
               { key: "tauxMarge", label: "Taux" },
             ]}
             tableData={margeTableData}
+            isLoading={isLoadingOverview}
           />
           <BaseKpiCard
             label="€ OCOC / client"
-            value={`${mockData.ococ_client.current}€`}
-            previousValue={`${mockData.ococ_client.previous}€`}
-            trend={mockData.ococ_client.trend}
+            value={formatPrice(ococCurrent)}
+            previousValue={getPreviousCurrencyValue(ococPrevious)}
+            trend={getTrend(ococCurrent, ococPrevious)}
             icon={<Building2 className="h-5 w-5 text-segment-gc" />}
             variant="gc"
             showComparison={isComparing}
-            tableTitle="Impact OCOC par client"
-            tableColumns={[
-              { key: "client", label: "Client" },
-              {
-                key: "tasses",
-                label: "Tasses",
-                format: (v) => (v || 0).toLocaleString(),
-              },
-              { key: "ococ", label: "€ OCOC", format: (v) => `${v}€` },
-              { key: "arbres", label: "Arbres" },
-            ]}
-            tableData={ococGCData}
+            isLoading={isLoadingOverview}
           />
         </div>
       </div>
 
       {/* Graphiques */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        {/* Evolution chart section */}
         <div
           className="chart-container cursor-pointer hover:shadow-lg transition-all"
           onClick={() => setArrModalOpen(true)}
@@ -215,9 +428,7 @@ export function GrandsComptesView({
               <YAxis
                 stroke="hsl(25, 15%, 45%)"
                 fontSize={12}
-                tickFormatter={(value) =>
-                  `${((value || 0) / 1000000).toFixed(1)}M€`
-                }
+                tickFormatter={(value) => formatPrice(Number(value || 0))}
               />
               <Tooltip
                 contentStyle={{
@@ -225,10 +436,7 @@ export function GrandsComptesView({
                   border: "1px solid hsl(35, 20%, 88%)",
                   borderRadius: "0.75rem",
                 }}
-                formatter={(value: number) => [
-                  `${((value || 0) / 1000000).toFixed(2)}M€`,
-                  "ARR",
-                ]}
+                formatter={(value: number) => [formatPrice(value || 0), "ARR"]}
               />
               <Area
                 type="monotone"
@@ -238,11 +446,19 @@ export function GrandsComptesView({
                 fill="url(#colorArr)"
                 strokeWidth={2}
               />
+              {inactiveRanges.map((range, index) => (
+                <ReferenceArea
+                  key={`inactive-${index}`}
+                  x1={range.start}
+                  x2={range.end}
+                  fill="rgba(149, 137, 137, 0.7)"
+                  strokeOpacity={0}
+                />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
         </div>
-
-        <div
+        {/* <div
           className="chart-container cursor-pointer hover:shadow-lg transition-all"
           onClick={() => setAdoptionModalOpen(true)}
         >
@@ -285,11 +501,11 @@ export function GrandsComptesView({
               />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </div> */}
       </div>
 
-      {/* KPIs secondaires */}
-      <div>
+      {/* Products section */}
+      {/* <div>
         <h3 className="text-lg font-semibold mb-4">Opérations & Marketing</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SimpleKpiCard
@@ -386,7 +602,7 @@ export function GrandsComptesView({
             ]}
           />
         </div>
-      </div>
+      </div> */}
 
       {/* Modals for charts */}
       <DataTableModal
@@ -398,7 +614,7 @@ export function GrandsComptesView({
           {
             key: "arr",
             label: "ARR",
-            format: (v) => `${((v || 0) / 1000000).toFixed(2)}M€`,
+            format: (v) => formatPrice(v),
           },
         ]}
         data={revenueData}

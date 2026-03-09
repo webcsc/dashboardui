@@ -8,6 +8,15 @@ import {
   fetchSummary,
   fetchProducts,
 } from "@/services/dashboard-api";
+import {
+  fetchKpiStrategiqueOverview,
+  fetchKpiStrategiqueOverviewGrandsComptes,
+  fetchKpiStrategiqueOverviewPlugPlay,
+  fetchKpiStrategiqueEvolution,
+  fetchKpiStrategiqueEvolutionGrandsComptes,
+  fetchKpiStrategiqueEvolutionPlugPlay,
+  type KpiStrategiqueSegment,
+} from "@/services/kpi-strategique";
 import { CACHE_TIME } from "@/config/constants";
 import { Product } from "@/types/products";
 
@@ -30,7 +39,6 @@ export function useOverview(
   filters: FilterState,
   options?: { enabled?: boolean },
 ) {
-  console.log(filters);
   return useQuery({
     queryKey: ["overview", view, filters],
     queryFn: () => fetchOverview(view, filters),
@@ -185,6 +193,122 @@ export function useProducts<T = Product>(
         filters,
       ),
 
+    staleTime: CACHE_TIME.STALE_TIME,
+    gcTime: CACHE_TIME.CACHE_TIME,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    placeholderData: (previousData) => previousData,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
+  });
+}
+
+/**
+ * Hook pour charger l'overview KPI stratégique par segment.
+ *
+ * @param segment - Segment stratégique ('grands_comptes', 'plug_and_play', 'b2c').
+ * @param filters - Filtres appliqués.
+ * @param options - Options supplémentaires pour React Query.
+ */
+export function useKpiStrategiqueOverview<S extends KpiStrategiqueSegment>(
+  segment: S,
+  filters: FilterState,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ["kpi-strategique-overview", segment, filters],
+    queryFn: () => fetchKpiStrategiqueOverview(segment, filters),
+    staleTime: CACHE_TIME.STALE_TIME,
+    gcTime: CACHE_TIME.CACHE_TIME,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    placeholderData: (previousData) => previousData,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
+  });
+}
+
+/**
+ * Hook dédié à l'overview KPI stratégique Grands Comptes.
+ */
+export function useKpiStrategiqueOverviewGrandsComptes(
+  filters: FilterState,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ["kpi-strategique-overview", "grands_comptes", filters],
+    queryFn: () => fetchKpiStrategiqueOverviewGrandsComptes(filters),
+    staleTime: CACHE_TIME.STALE_TIME,
+    gcTime: CACHE_TIME.CACHE_TIME,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    placeholderData: (previousData) => previousData,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
+  });
+}
+
+/**
+ * Hook dédié à l'overview KPI stratégique Plug & Play.
+ */
+export function useKpiStrategiqueOverviewPlugPlay(
+  filters: FilterState,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ["kpi-strategique-overview", "plug_and_play", filters],
+    queryFn: () => fetchKpiStrategiqueOverviewPlugPlay(filters),
+    staleTime: CACHE_TIME.STALE_TIME,
+    gcTime: CACHE_TIME.CACHE_TIME,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    placeholderData: (previousData) => previousData,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
+  });
+}
+
+// ── Evolution KPI Stratégique ──
+
+/**
+ * Hook générique pour l'évolution KPI stratégique par segment.
+ */
+export function useKpiStrategiqueEvolution(
+  segment: KpiStrategiqueSegment,
+  filters: FilterState,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ["kpi-strategique-evolution", segment, filters],
+    queryFn: () => fetchKpiStrategiqueEvolution(segment, filters),
+    staleTime: CACHE_TIME.STALE_TIME,
+    gcTime: CACHE_TIME.CACHE_TIME,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    placeholderData: (previousData) => previousData,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
+  });
+}
+
+export function useKpiStrategiqueEvolutionGrandsComptes(
+  filters: FilterState,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ["kpi-strategique-evolution", "grands_comptes", filters],
+    queryFn: () => fetchKpiStrategiqueEvolutionGrandsComptes(filters),
+    staleTime: CACHE_TIME.STALE_TIME,
+    gcTime: CACHE_TIME.CACHE_TIME,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    placeholderData: (previousData) => previousData,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
+  });
+}
+
+export function useKpiStrategiqueEvolutionPlugPlay(
+  filters: FilterState,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ["kpi-strategique-evolution", "plug_and_play", filters],
+    queryFn: () => fetchKpiStrategiqueEvolutionPlugPlay(filters),
     staleTime: CACHE_TIME.STALE_TIME,
     gcTime: CACHE_TIME.CACHE_TIME,
     retry: 3,

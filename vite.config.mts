@@ -3,17 +3,17 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
-  server: {
-    host: "0.0.0.0",
-    allowedHosts: ["dashboard-dev.chacunsoncafe.local", "localhost"],
-    watch: {
-      usePolling: true,
-    },
-    hmr: {
-      // HMR WebSocket connects via the nginx proxy on HTTPS
-      clientPort: 443,
-    },
-  },
+  // server: {
+  //   host: "0.0.0.0",
+  //   allowedHosts: ["dashboard-dev.chacunsoncafe.local", "localhost"],
+  //   watch: {
+  //     usePolling: true,
+  //   },
+  //   hmr: {
+  //     // HMR WebSocket connects via the nginx proxy on HTTPS
+  //     clientPort: 443,
+  //   },
+  // },
   plugins: [react()].filter(Boolean),
   resolve: {
     alias: {
